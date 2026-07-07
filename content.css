@@ -85,28 +85,6 @@
     color: var(--color-neutral-content-weak, #7c7c7c);
 }
 
-#ghostddit-revealed-posts .ghostddit-arrow {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-neutral-content-weak, #878a8c);
-}
-
-#ghostddit-revealed-posts .ghostddit-arrow-up:hover {
-    color: #ff4500;
-}
-
-#ghostddit-revealed-posts .ghostddit-arrow-down:hover {
-    color: #7193ff;
-}
-
-#ghostddit-revealed-posts .ghostddit-comment-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-neutral-content-weak, #878a8c);
-}
-
 #ghostddit-revealed-posts .ghostddit-status {
     font-size: 12px;
     color: var(--color-neutral-content-weak, #7c7c7c);

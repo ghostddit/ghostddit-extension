@@ -10,10 +10,8 @@
 // near the bottom of this file are what let it react to in-app navigation.
 (function () {
     const PANEL_ID = 'ghostddit-revealed-posts';
-    const PROCESSED_ATTR = 'data-ghostddit-processed';
 
     let currentUsername = null;
-    let currentTab = null;
     let currentSort = null;
     let currentTimeframe = null;
     let afterToken = null;
@@ -677,8 +675,6 @@
 
         const key = contextKey(ctx);
 
-        emptyFeedEl.setAttribute(PROCESSED_ATTR, key);
-
         if (key === lastContextKey) {
             // Same view as before, but Reddit's own re-renders can detach our
             // panel from the DOM (e.g. it re-creates the empty-feed element) —
@@ -714,7 +710,6 @@
         }
 
         currentUsername = ctx.username;
-        currentTab = ctx.tab;
         currentSort = ctx.sort;
         currentTimeframe = ctx.timeframe;
         afterToken = null;
