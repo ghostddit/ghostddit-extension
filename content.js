@@ -400,6 +400,9 @@
                         <svg fill="currentColor" height="16" width="16" viewBox="0 0 20 20" style="display:block"><path d="M13.7 10c0 .23-.088.46-.264.636l-4.6 4.6a.9.9 0 11-1.273-1.272L11.526 10 7.563 6.036a.9.9 0 011.273-1.272l4.6 4.6A.897.897 0 0113.7 10z"/></svg>
                     </button>
                     <span class="ghostddit-gallery-counter" style="position:absolute; z-index:2; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; font-size:11px; padding:2px 8px; border-radius:9999px;">1 / ${gallery.length}</span>
+                    <div class="ghostddit-gallery-loader" style="display:none; position:absolute; inset:0; z-index:3; align-items:center; justify-content:center; pointer-events:none;">
+                        <div class="ghostddit-gallery-spinner"></div>
+                    </div>
                     ` : ''}
                     </div>`
                     : (image ? `<div class="relative z-10 overflow-hidden mb-xs rounded-4 bg-black" style="height:min(420px,60vh); width:100%;">
@@ -490,13 +493,17 @@
         const prevBtn = cardEl.querySelector('.ghostddit-gallery-prev');
         const nextBtn = cardEl.querySelector('.ghostddit-gallery-next');
         const counterEl = cardEl.querySelector('.ghostddit-gallery-counter');
+        const loaderEl = cardEl.querySelector('.ghostddit-gallery-loader');
         if (!imgEl || !gallery || gallery.length < 2) return;
 
         let index = 0;
+        // Bumped on every navigation so a slow-loading image that finishes
+        // after the user has already clicked past it can't clobber a newer,
+        // faster-loading one — only the load/error event matching the
+        // current token is allowed to touch the DOM.
+        let loadToken = 0;
 
-        function render() {
-            imgEl.src = gallery[index].url;
-            if (bgEl) bgEl.src = gallery[index].url;
+        function updateChrome() {
             if (counterEl) counterEl.textContent = `${index + 1} / ${gallery.length}`;
             if (prevBtn) {
                 prevBtn.style.opacity = index === 0 ? '0.4' : '1';
@@ -508,22 +515,49 @@
             }
         }
 
+        function goTo(newIndex) {
+            index = newIndex;
+            const targetUrl = gallery[index].url;
+            const myToken = ++loadToken;
+
+            // Fade the old photo out and show a spinner until the new one is actually ready to display.
+            if (loaderEl) loaderEl.style.display = 'flex';
+            imgEl.style.opacity = '0';
+
+            imgEl.onload = () => {
+                if (myToken !== loadToken) return; // superseded by a later click
+                if (loaderEl) loaderEl.style.display = 'none';
+                imgEl.style.opacity = '1';
+            };
+            imgEl.onerror = () => {
+                if (myToken !== loadToken) return;
+                if (loaderEl) loaderEl.style.display = 'none';
+                imgEl.style.opacity = '1';
+                const container = cardEl.querySelector('.ghostddit-gallery');
+                if (container) container.style.display = 'none';
+            };
+
+            imgEl.src = targetUrl;
+            if (bgEl) bgEl.src = targetUrl;
+            updateChrome();
+        }
+
         if (prevBtn) {
             prevBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (index > 0) { index -= 1; render(); }
+                if (index > 0) goTo(index - 1);
             });
         }
         if (nextBtn) {
             nextBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (index < gallery.length - 1) { index += 1; render(); }
+                if (index < gallery.length - 1) goTo(index + 1);
             });
         }
 
-        render();
+        updateChrome();
     }
 
     function setupSelftextCard(cardEl) {

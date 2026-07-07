@@ -122,6 +122,23 @@
     height: 1px;
 }
 
+#ghostddit-revealed-posts .ghostddit-gallery-img {
+    transition: opacity 0.15s ease;
+}
+
+#ghostddit-revealed-posts .ghostddit-gallery-spinner {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.25);
+    border-top-color: #fff;
+    animation: ghostddit-gallery-spin 0.7s linear infinite;
+}
+
+@keyframes ghostddit-gallery-spin {
+    to { transform: rotate(360deg); }
+}
+
 /*
  * Update banner
  * * Rendered once per page (appended to <html>, not scoped to the profile
