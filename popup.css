@@ -45,6 +45,10 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+.hidden {
+    display: none !important;
+}
+
 .panel {
     padding: 18px 18px 16px;
     display: flex;

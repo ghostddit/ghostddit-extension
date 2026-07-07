@@ -32,7 +32,7 @@
             statusIcon.textContent = '⟳';
             statusTitle.textContent = 'Checking for updates…';
             statusDetail.textContent = '';
-            updateLink.hidden = true;
+            updateLink.classList.toggle('hidden', true);
             return;
         }
 
@@ -42,13 +42,13 @@
             statusTitle.textContent = `Version ${info.latestVersion} is available`;
             statusDetail.textContent = `You're on v${info.currentVersion}. Checked ${timeAgo(info.checkedAt)}.`;
             updateLink.href = info.releaseUrl;
-            updateLink.hidden = false;
+            updateLink.classList.toggle('hidden', false);
         } else {
             statusCard.dataset.state = 'up-to-date';
             statusIcon.textContent = '✓';
             statusTitle.textContent = "You're up to date";
             statusDetail.textContent = `Checked ${timeAgo(info.checkedAt)}.`;
-            updateLink.hidden = true;
+            updateLink.classList.toggle('hidden', true);
         }
     }
 
@@ -57,7 +57,7 @@
         statusIcon.textContent = '!';
         statusTitle.textContent = "Couldn't check for updates";
         statusDetail.textContent = message || 'Check your connection and try again.';
-        updateLink.hidden = true;
+        updateLink.classList.toggle('hidden', true);
     }
 
     // `silent` is used for the automatic on-open check: if we already have
@@ -73,7 +73,7 @@
             statusIcon.textContent = '⟳';
             statusTitle.textContent = 'Checking for updates…';
             statusDetail.textContent = '';
-            updateLink.hidden = true;
+            updateLink.classList.toggle('hidden', true);
         }
 
         chrome.runtime.sendMessage({ type: 'GHOSTDDIT_CHECK_UPDATE_NOW' }, (resp) => {
