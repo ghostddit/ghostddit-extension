@@ -453,10 +453,9 @@
 
         emptyFeedEl.insertAdjacentElement('afterend', panel);
 
-        // Infinite scroll: instead of a "Load more" button, an invisible
-        // sentinel sits at the bottom of the list. IntersectionObserver fires
-        // as soon as it nears the viewport (rootMargin gives it a head
-        // start), which triggers the next page fetch automatically.
+        // Infinite scroll: an invisible sentinel sits at the bottom of the list. 
+        // IntersectionObserver fires as soon as it nears the viewport (rootMargin
+        //  gives it a head start), which triggers the next page fetch automatically.
         // loadMore()'s own loading/exhausted guards keep this from firing
         // duplicate requests. The observer is stashed on the panel so
         // tryInject() can disconnect it when the panel is torn down for a
@@ -655,7 +654,7 @@
             const panel = document.getElementById(PANEL_ID);
             if (panel && !panel.isConnected) {
                 emptyFeedEl.insertAdjacentElement('afterend', panel);
-            } else if (!panel && ctx.tab !== 'comments') {
+            } else if (!panel) {
                 lastContextKey = null;
                 tryInject();
             }
