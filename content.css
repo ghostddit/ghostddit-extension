@@ -1,0 +1,174 @@
+/*
+ * Ghostddit panel styles
+ *
+ * Uses Reddit's own CSS custom properties (--color-neutral-*, --font-sans)
+ * so the injected panel automatically follows the site's light/dark theme;
+ * each property has a literal fallback in case Reddit ever renames or drops
+ * one of these variables.
+ */
+#ghostddit-revealed-posts {
+    position: relative;
+    /* Creates a new stacking context so our z-index values (e.g. on the
+       gallery arrows/comment icon, layered above the full-card overlay link)
+       can't be interleaved with unrelated Reddit elements.
+    */
+    isolation: isolate;
+    margin-top: 12px;
+    border-top: 1px solid var(--color-neutral-border-weak, #e5e5e5);
+    padding-top: 12px;
+    font-family: var(--font-sans, inherit);
+}
+
+#ghostddit-revealed-posts .ghostddit-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding: 0 4px;
+}
+
+#ghostddit-revealed-posts .ghostddit-badge {
+    background: #ff4500;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+}
+
+#ghostddit-revealed-posts .ghostddit-badge-soon {
+    background: var(--color-neutral-background-weak, #e5e5e5);
+    color: var(--color-neutral-content-weak, #575757);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+#ghostddit-revealed-posts .ghostddit-header-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-neutral-content-strong, #1a1a1b);
+}
+
+#ghostddit-revealed-posts .ghostddit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#ghostddit-revealed-posts .ghostddit-card {
+    display: block;
+    position: relative;
+    isolation: isolate;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--color-neutral-background, #fff);
+    border: 1px solid var(--color-neutral-border-weak, #edeff1);
+    color: inherit;
+    transition: background-color 0.15s ease;
+}
+
+#ghostddit-revealed-posts .ghostddit-card:hover {
+    background: var(--color-neutral-background-hover, #f6f7f8);
+}
+
+#ghostddit-revealed-posts .ghostddit-card a {
+    text-decoration: none;
+    color: inherit;
+}
+
+#ghostddit-revealed-posts .ghostddit-vote {
+    color: var(--color-neutral-content-weak, #7c7c7c);
+}
+
+#ghostddit-revealed-posts .ghostddit-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-neutral-content-weak, #878a8c);
+}
+
+#ghostddit-revealed-posts .ghostddit-arrow-up:hover {
+    color: #ff4500;
+}
+
+#ghostddit-revealed-posts .ghostddit-arrow-down:hover {
+    color: #7193ff;
+}
+
+#ghostddit-revealed-posts .ghostddit-comment-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-neutral-content-weak, #878a8c);
+}
+
+#ghostddit-revealed-posts .ghostddit-status {
+    font-size: 12px;
+    color: var(--color-neutral-content-weak, #7c7c7c);
+    padding: 8px 4px;
+    text-align: center;
+}
+
+/* Invisible tripwire at the bottom of the list — IntersectionObserver in
+   content.js watches this to auto-fetch the next page as the user scrolls
+   near it. It has height so it can actually be observed, but no visuals.
+*/
+#ghostddit-revealed-posts .ghostddit-sentinel {
+    height: 1px;
+}
+
+/*
+ * Update banner
+ * * Rendered once per page (appended to <html>, not scoped to the profile
+ * panel) whenever background.js's GitHub release check finds a newer
+ * version. Fixed to the top of the viewport so it's visible regardless of
+ * which part of Reddit the user is on.
+ */
+#ghostddit-update-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: #ff4500;
+    color: #fff;
+    font-family: var(--font-sans, inherit);
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+#ghostddit-update-banner .ghostddit-update-text {
+    white-space: nowrap;
+}
+
+#ghostddit-update-banner .ghostddit-update-link {
+    color: #fff;
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+#ghostddit-update-banner .ghostddit-update-dismiss {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.85;
+}
+
+#ghostddit-update-banner .ghostddit-update-dismiss:hover {
+    opacity: 1;
+}

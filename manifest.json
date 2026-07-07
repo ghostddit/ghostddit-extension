@@ -1,0 +1,52 @@
+{
+    "manifest_version": 3,
+    "name": "Ghostddit",
+    "short_name": "Ghostddit",
+    "version": "1.0.0",
+    "description": "Shows hidden Reddit posts and comments directly on hidden profile pages",
+    "homepage_url": "https://github.com/ghostddit/ghostddit-extension",
+
+    "icons": {
+        "16": "icons/icon16.png",
+        "32": "icons/icon32.png",
+        "48": "icons/icon48.png",
+        "64": "icons/icon64.png",
+        "128": "icons/icon128.png"
+    },
+
+    "action": {
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "32": "icons/icon32.png",
+            "48": "icons/icon48.png",
+            "64": "icons/icon64.png",
+            "128": "icons/icon128.png"
+        },
+        "default_title": "Ghostddit",
+        "default_popup": "popup.html"
+    },
+
+    "permissions": [
+        "storage",
+        "alarms"
+    ],
+    "host_permissions": [
+        "https://api.reddit.com/*",
+        "https://www.reddit.com/*",
+        "https://api.github.com/*"
+    ],
+
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+        "matches": [
+            "https://www.reddit.com/*"
+        ],
+        "js": ["content.js"],
+        "css": ["content.css"],
+        "run_at": "document_idle"
+        }
+    ]
+}

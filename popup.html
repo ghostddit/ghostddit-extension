@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Ghostddit</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div class="panel">
+        <header class="panel-head">
+            <div class="icon"><img src="icons/icon128.png" alt="Ghostddit icon"></div>
+            <div class="head-text">
+                <h1>Ghostddit</h1>
+                <p class="tagline">Hidden posts &amp; comments, back in view</p>
+            </div>
+        </header>
+
+        <section class="version-row">
+            <span class="version-label">Installed version</span>
+            <span class="version-value" id="current-version">—</span>
+        </section>
+
+        <section class="status-card" id="status-card" data-state="checking">
+            <div class="status-icon" id="status-icon" aria-hidden="true"></div>
+            <div class="status-copy">
+                <p class="status-title" id="status-title">Checking for updates…</p>
+                <p class="status-detail" id="status-detail"></p>
+            </div>
+        </section>
+
+        <div class="actions">
+            <a class="btn btn-primary" id="update-link" href="#" target="_blank" rel="noopener" hidden>Get the
+                update</a>
+            <button class="btn btn-ghost" id="recheck-btn" type="button">Check for updates</button>
+        </div>
+
+        <footer class="panel-foot">
+            <a href="https://github.com/ghostddit/ghostddit-extension" target="_blank" rel="noopener">Source on
+                GitHub</a>
+        </footer>
+    </div>
+    <script src="popup.js"></script>
+</body>
+
+</html>
