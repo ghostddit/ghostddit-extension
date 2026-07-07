@@ -41,11 +41,15 @@ Ghostddit Extension doesn't collect, transmit, or store any personal data of its
 
 This is a plain Manifest V3 extension — no build step required.
 
+See [ARCHITECTURE](ARCHITECTURE.md) for extension design details.
+
 1. Clone the repo.
 2. Load it unpacked as described above, pointing at the repo's root folder.
 3. After editing any file, click the refresh icon on the extension's card in `chrome://extensions` to pick up changes (a full page reload on Reddit is also needed for content script changes).
 
 ## Contributing
+
+See [CONTRIBUTING](CONTRIBUTING.md) for the full contribution workflow and style guidelines.
 
 Ghostddit Extension is open source and contributions are welcome — bug fixes, new features, or just cleaning something up.
 
