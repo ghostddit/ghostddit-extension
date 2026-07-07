@@ -1,8 +1,21 @@
 # Ghostddit Extension
 
-Ghostddit Extension is a browser extension that reveals a Reddit user's posts & comments on their profile page, even when Reddit itself shows an empty feed `"Welcome! u/USERNAME likes to keep their posts hidden, but check out their stats to learn more about them."`. It renders results inline as native-feeling cards, right where the empty state used to be, and auto-loads more as you scroll.
+Ghostddit Extension is a browser extension that reveals a Reddit user's posts & comments on their profile page, even when Reddit itself shows an empty feed "Welcome! u/USERNAME likes to keep their posts hidden, but check out their stats to learn more about them." It renders results inline as native-feeling cards, right where the empty state used to be, and auto-loads more as you scroll.
 
 Not affiliated with Reddit, Inc. Ghostddit is not distributed through the Chrome Web Store — install it from the [Releases](https://github.com/ghostddit/ghostddit-extension/releases) page.
+
+Ghostddit currently supports Chromium-based browsers such as Chrome, Edge, and Brave, plus Firefox.
+
+## Table of contents
+
+- [Features](#features)
+- [Installing from Releases](#installing-from-releases)
+- [Usage](#usage)
+- [Permissions](#permissions)
+- [Development](#development)
+- [Contributing](#contributing)
+- [Disclaimer](#disclaimer)
+- [License](#license)
 
 ## Features
 
@@ -12,19 +25,42 @@ Not affiliated with Reddit, Inc. Ghostddit is not distributed through the Chrome
 
 ## Installing from Releases
 
-Since Ghostddit Extension isn't published on the Chrome Web Store, browsers won't auto-update it — you install it manually as an unpacked extension, and the built-in update checker will let you know when a new version is out.
+Ghostddit Extension is not published on the Chrome Web Store, so you install it manually as an unpacked extension. The built-in update checker will still notify you when a newer release is available.
 
-1. Go to the [Releases page](https://github.com/ghostddit/ghostddit-extension/releases) and download the `.zip` asset attached to the latest release.
-2. Unzip it. You should get a folder containing `manifest.json`, `content.js`, `background.js`, `popup.html`, and so on — not a folder containing another folder.
+### Chromium browsers
+
+1. Go to the [Releases page](https://github.com/ghostddit/ghostddit-extension/releases) and download the latest `.zip` asset.
+2. Unzip it. Make sure the folder contains `manifest.json`, `content.js`, `background.js`, `popup.html`, and so on — not a folder containing another folder.
 3. Open your browser's extensions page:
-   - **Chrome / Brave / Edge / other Chromium browsers:** go to `chrome://extensions` (or `brave://extensions`).
-4. Turn on **Developer mode** (top-right toggle on Chrome/Edge).
-5. Click **Load unpacked**, then select the unzipped folder from step 2.
-6. Ghostddit's icon should appear in your toolbar. Pin it for easy access via the puzzle-piece menu if you don't see it right away.
+   - **Chrome / Brave / other Chromium browsers:** `chrome://extensions`
+   - **Edge:** `edge://extensions`
+4. Enable **Developer mode** (usually a toggle in the top-right corner).
+5. Click **Load unpacked** and select the unzipped folder from step 2.
+6. Ghostddit's icon should appear in your toolbar. If it does not, open the browser's extension menu (puzzle-piece icon) and pin it.
+
+### Firefox
+
+1. Download `ghostddit-extension.zip` from the [Releases page](https://github.com/ghostddit/ghostddit-extension/releases).
+2. Unzip it.
+3. Open `about:debugging` and choose **This Firefox** (or go directly to `about:debugging#/runtime/this-firefox`).
+4. Click **Load Temporary Add-on…**.
+5. Select any file from the unzipped folder, such as `manifest.json`.
+6. Reload Reddit if needed.
+
+> Note: Firefox loads temporary add-ons only for the current browser session. If Firefox restarts, re-load the extension from `about:debugging`.
 
 ### Updating
 
-Click the Ghostddit toolbar icon to open the popup — it shows your installed version and checks for a newer release automatically. When one's available, use **Get the update** to jump to the new release, download the new `.zip`, and repeat the install steps above (or use **Reload** on the extension's card in `chrome://extensions` after replacing the unpacked folder's contents).
+Click the Ghostddit toolbar icon to open the popup — it shows your installed version and checks for a newer release automatically. When one is available, use **Get the update** to jump to the new release, download the new `.zip`, and repeat the install steps above (or use **Reload** on the extension's card in `chrome://extensions` after replacing the unpacked folder's contents).
+
+## Usage
+
+1. Open a Reddit user profile page at `https://www.reddit.com/user/<username>`.
+2. Switch to the **Overview** or **Posts** or **Comments** tab.
+3. If Reddit shows an empty feed, Ghostddit will load the user's public posts and comments inline using Reddit's public data sources.
+4. Scroll to load more results automatically.
+
+> Note: The extension currently focuses on Overview and Posts views; Comments support is planned for future releases.
 
 ## Permissions
 
@@ -58,6 +94,12 @@ Ghostddit Extension is open source and contributions are welcome — bug fixes, 
 3. Open a pull request describing what you changed and why.
 
 Bug reports and feature requests are just as welcome — open an [issue](https://github.com/ghostddit/ghostddit-extension/issues) if you run into something.
+
+## Known limitations
+
+- Works only on public Reddit user profile pages and does not bypass Reddit's access controls.
+- Does not reveal private, removed, deleted, or suspended account content.
+- Firefox support uses temporary add-on loading, so the extension must be reloaded after the browser restarts.
 
 ## Disclaimer
 
