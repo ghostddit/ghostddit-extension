@@ -1,6 +1,6 @@
-# Ghostddit
+# Ghostddit Extension
 
-Ghostddit is a browser extension that reveals a Reddit user's posts & comments on their profile page, even when Reddit itself shows an empty feed `"Welcome! u/USERNAME likes to keep their posts hidden, but check out their stats to learn more about them."`. It renders results inline as native-feeling cards, right where the empty state used to be, and auto-loads more as you scroll.
+Ghostddit Extension is a browser extension that reveals a Reddit user's posts & comments on their profile page, even when Reddit itself shows an empty feed `"Welcome! u/USERNAME likes to keep their posts hidden, but check out their stats to learn more about them."`. It renders results inline as native-feeling cards, right where the empty state used to be, and auto-loads more as you scroll.
 
 Not affiliated with Reddit, Inc. Ghostddit is not distributed through the Chrome Web Store — install it from the [Releases](https://github.com/ghostddit/ghostddit-extension/releases) page.
 
@@ -12,7 +12,7 @@ Not affiliated with Reddit, Inc. Ghostddit is not distributed through the Chrome
 
 ## Installing from Releases
 
-Since Ghostddit isn't published on the Chrome Web Store, browsers won't auto-update it — you install it manually as an unpacked extension, and the built-in update checker will let you know when a new version is out.
+Since Ghostddit Extension isn't published on the Chrome Web Store, browsers won't auto-update it — you install it manually as an unpacked extension, and the built-in update checker will let you know when a new version is out.
 
 1. Go to the [Releases page](https://github.com/ghostddit/ghostddit-extension/releases) and download the `.zip` asset attached to the latest release.
 2. Unzip it. You should get a folder containing `manifest.json`, `content.js`, `background.js`, `popup.html`, and so on — not a folder containing another folder.
@@ -35,7 +35,7 @@ Click the Ghostddit toolbar icon to open the popup — it shows your installed v
 | `https://api.reddit.com/*`, `https://www.reddit.com/*` | Fetches posts and subreddit icons for the profile you're viewing.     |
 | `https://api.github.com/*`                             | Checks the latest GitHub release to power the update checker.         |
 
-Ghostddit doesn't collect, transmit, or store any personal data of its own — all requests go straight from your browser to Reddit's and GitHub's public APIs.
+Ghostddit Extension doesn't collect, transmit, or store any personal data of its own — all requests go straight from your browser to Reddit's and GitHub's public APIs.
 
 ## Development
 
@@ -47,7 +47,7 @@ This is a plain Manifest V3 extension — no build step required.
 
 ## Contributing
 
-Ghostddit is open source and contributions are welcome — bug fixes, new features, or just cleaning something up.
+Ghostddit Extension is open source and contributions are welcome — bug fixes, new features, or just cleaning something up.
 
 1. Fork the repo and create a branch for your change.
 2. Make your changes (see [Development](#development) above for how to load and test it locally).
@@ -57,8 +57,8 @@ Bug reports and feature requests are just as welcome — open an [issue](https:/
 
 ## Disclaimer
 
-Ghostddit surfaces posts that are already public but that Reddit's UI happens not to display on a given profile view. It doesn't bypass privacy settings, suspensions, or bans — if Reddit's API itself withholds a post (private, removed, or the account is suspended), Ghostddit can't show it either.
+Ghostddit Extension surfaces posts that are already public but that Reddit's UI happens not to display on a given profile view. It doesn't bypass privacy settings, suspensions, or bans — if Reddit's API itself withholds a post (private, removed, or the account is suspended), Ghostddit Extension can't show it either.
 
 ## License
 
-Ghostddit is open source, licensed under the [MIT License](LICENSE) — you're free to use, modify, and distribute it, including for commercial purposes, as long as the original copyright and license notice are kept.
+Ghostddit Extension is open source, licensed under the [MIT License](LICENSE) — you're free to use, modify, and distribute it, including for commercial purposes, as long as the original copyright and license notice are kept.
