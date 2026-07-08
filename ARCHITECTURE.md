@@ -81,12 +81,14 @@ than top to bottom:
    we already handled, or a new one that needs a fresh fetch? It's
    deliberately defensive because it gets called constantly.
 
-4. **`loadMore()`** — fetches one page of posts and appends them. Guards
-   against races with a `generation` counter: every time `tryInject()` starts
-   tracking a new profile/tab/sort, it bumps `generation`. Any in-flight
-   fetch checks its captured generation against the current one before
-   touching the DOM, so a slow response for a profile you've since navigated
-   away from can't render into the wrong panel.
+4. **`loadMore()` / `loadComments()`** — fetches one page of posts or
+   comments and appends them. Guards against races with a `generation`
+   counter: every time `tryInject()` starts tracking a new profile/tab/sort,
+   it bumps `generation`. Any in-flight fetch checks its captured generation
+   against the current one before touching the DOM, so a slow response for a
+   profile you've since navigated away from can't render into the wrong panel.
+   The Comments tab uses a separate cursor-based flow via
+   `setupCommentsSentinel()` and `loadComments()`.
 
 5. **Rendering** — `postCardHtml()`, `renderPosts()`, the gallery carousel
    (`setupGalleryCard`), and the tiny hand-rolled Markdown renderer
@@ -148,7 +150,7 @@ watching for it.
 | I want to...                                              | Look at                                                                                                                     |
 |-----------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
 | Change how a post card looks                              | `postCardHtml()` in content.js, `.ghostddit-card` in content.css                                                            |
-| Support the Comments tab (currently a "coming soon" stub) | The `ctx.tab === 'comments'` branch in `tryInject()`                                                                        |
+| Adjust the Comments tab experience                        | The `ctx.tab === 'comments'` branch in `tryInject()`, plus `loadComments()` and `setupCommentsSentinel()` in content.js     |
 | Change what counts as "the empty state"                   | `findEmptyFeedContent()` — careful, this is the one Reddit-DOM-shape dependency in the whole extension                      |
 | Add a new field from Reddit's post data to the card       | `postCardHtml()` — the post object is Reddit's raw API shape, nothing is pre-processed                                      |
 | Change the update-check frequency                         | `UPDATE_CHECK_PERIOD_MINUTES` in background.js                                                                              |

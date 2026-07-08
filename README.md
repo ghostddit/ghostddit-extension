@@ -19,7 +19,7 @@ Ghostddit currently supports Chromium-based browsers such as Chrome, Edge, and B
 
 ## Features
 
-- **Reveals hidden post & comment history** on `reddit.com/user/<name>` profile pages, across the Overview, Posts, and (soon) Comments tabs, using Reddit's own public search API as a fallback source.
+- **Reveals hidden post & comment history** on `reddit.com/user/<name>` profile pages, across the Overview, Posts, and Comments tabs, using Reddit's own public search API as a fallback source.
 - **Subreddit icons, galleries, videos, and self-text rendering**, formatted to match Reddit's native look and follow its light/dark theme automatically.
 - **Built-in update checker** — a toolbar popup shows your installed version, checks GitHub Releases for a newer one, and lets you jump straight to the download.
 
@@ -60,7 +60,7 @@ Click the Ghostddit toolbar icon to open the popup — it shows your installed v
 3. If Reddit shows an empty feed, Ghostddit will load the user's public posts and comments inline using Reddit's public data sources.
 4. Scroll to load more results automatically.
 
-> Note: The extension currently focuses on Overview and Posts views; Comments support is planned for future releases.
+> Note: The extension supports Overview, Posts, and Comments views; comments load inline when Reddit exposes them through public search results.
 
 ## Permissions
 

@@ -73,6 +73,8 @@ Before opening a PR, check:
   Ghostddit should stay completely inert there.
 - Scrolling still loads more posts (if you touched anything in
   `loadMore`/pagination).
+- The Comments tab still loads and paginates correctly if you changed
+  comment parsing, `loadComments`, or the comments sentinel.
 - Navigating between two different profiles without a full page reload still
   works correctly (Reddit is an SPA — this exercises the
   `pushState`/`replaceState` patch and the `generation` guard).
