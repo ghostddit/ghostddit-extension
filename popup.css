@@ -247,6 +247,34 @@ body {
     cursor: default;
 }
 
+.links {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    padding-top: 4px;
+}
+
+.links ul {
+    display: flex;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.links ul li a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--mute);
+    font-size: 16px;
+    text-decoration: none;
+}
+
+.links ul li a:hover {
+    color: var(--ink);
+}
+
 .panel-foot {
     text-align: center;
     padding-top: 2px;
