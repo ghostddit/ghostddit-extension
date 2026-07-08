@@ -1,13 +1,9 @@
 // Ghostddit content script
 //
-// Runs on every www.reddit.com page. Its only job is to notice when Reddit
-// renders its "empty feed" state on a user-profile page (which is what a
-// hidden/limited post history looks like) and replace it with posts fetched
-// directly from Reddit's public search API via the background service worker.
-//
-// Reddit is a single-page app, so most navigation never triggers this script
-// to reinject — the MutationObserver + history.pushState/replaceState patch
-// near the bottom of this file are what let it react to in-app navigation.
+// Runs on www.reddit.com profile pages. Detects Reddit's "empty feed" state
+// and injects posts/comments fetched via the background service worker and
+// (for comments) direct same-origin requests. Also patches SPA navigation
+// so it re-runs on in-app profile switches.
 (function () {
     const PANEL_ID = 'ghostddit-revealed-posts';
 
@@ -22,10 +18,18 @@
     let generation = 0;
     let contextInvalidatedNoticeShown = false;
 
-    // chrome.runtime.id disappears once this content script's extension context
-    // has been invalidated (e.g. the extension was reloaded/updated while this
-    // Reddit tab stayed open). Checking it lets us fail gracefully instead of
-    // throwing "Extension context invalidated" on the next message send.
+    // Comments state, kept separate from posts state above — different
+    // endpoint and pagination mechanism (a chained cursor URL, not an
+    // `after` token).
+    let currentCommentsUsername = null;
+    let currentCommentsSort = null;
+    let seenCommentIds = new Set();
+    let nextCommentsUrl = null;
+    let commentsLoading = false;
+    let commentsExhausted = false;
+
+    // chrome.runtime.id disappears once the extension context is invalidated
+    // (e.g. reloaded while this tab is still open).
     function isExtensionContextValid() {
         try {
             return !!(chrome && chrome.runtime && chrome.runtime.id);
@@ -69,11 +73,8 @@
         return `${ctx.username}|${ctx.tab}|${ctx.sort}|${ctx.timeframe || ''}`;
     }
 
-    // Subreddit icons are fetched separately from posts (a different endpoint)
-    // and are shared across every post/panel for that subreddit, so they're
-    // cached module-wide rather than per-panel. iconFetchesInFlight prevents
-    // firing duplicate requests when several posts from the same subreddit
-    // render in the same batch.
+    // Module-wide subreddit icon cache, shared across all panels/tabs.
+    // iconFetchesInFlight dedupes concurrent requests for the same subreddit.
     const iconCache = new Map();
     const iconFetchesInFlight = new Set();
 
@@ -112,6 +113,27 @@
         applyIconsToPanel(panel);
     }
 
+    // Same as loadIconsForPosts(), reading subredditName off comment objects.
+    async function loadIconsForComments(panel, comments) {
+        const uniqueSubs = [
+            ...new Set(comments.map((c) => (c.subredditName || '').toLowerCase()).filter(Boolean))
+        ].filter((name) => !iconCache.has(name) && !iconFetchesInFlight.has(name));
+
+        if (!uniqueSubs.length) return;
+
+        uniqueSubs.forEach((name) => iconFetchesInFlight.add(name));
+
+        await Promise.all(
+            uniqueSubs.map(async (name) => {
+                const icon = await fetchSubredditIcon(name);
+                iconCache.set(name, icon);
+                iconFetchesInFlight.delete(name);
+            })
+        );
+
+        applyIconsToPanel(panel);
+    }
+
     function applyIconsToPanel(panel) {
         if (!panel) return;
         panel.querySelectorAll('.ghostddit-icon-slot').forEach((slot) => {
@@ -125,11 +147,8 @@
         });
     }
 
-    // This element is what Reddit renders inside <shreddit-feed> when a
-    // profile's post listing comes back empty (the situation we're targeting:
-    // posts exist but Reddit isn't showing them on this view). Its presence is
-    // our signal to inject; its absence means either a real empty profile or
-    // that we haven't found the right moment yet.
+    // Presence of this element is the signal that Reddit is hiding a
+    // profile's post history and Ghostddit should inject.
     function findEmptyFeedContent() {
         return document.querySelector('shreddit-feed #empty-feed-content');
     }
@@ -151,6 +170,245 @@
                 }
             );
         });
+    }
+
+    // ---------------------------------------------------------------------
+    // Comments
+    //
+    // Fetched and parsed directly from www.reddit.com (same-origin, cookies
+    // included) rather than through background.js, since this data only
+    // exists as rendered HTML from a "type=comments" search, not JSON.
+    //
+    // Pagination follows a server-issued cursor URL embedded in each
+    // response's <faceplate-partial loading="lazy" src="..."> tag. Its
+    // absence means the last page has been reached.
+    function commentSearchUrl(username, sort) {
+        const q = `author:"${username}"`;
+        // No `t` (timeframe) param — comment search doesn't support one.
+        return `https://www.reddit.com/svc/shreddit/search/?q=${encodeURIComponent(q)}&type=comments&sort=${encodeURIComponent(sort || 'new')}`;
+    }
+
+    function commentBodyHtml(bodyEl) {
+        if (!bodyEl) return '';
+        const paragraphs = Array.from(bodyEl.querySelectorAll('p'));
+        const source = paragraphs.length ? paragraphs.map((p) => p.textContent) : [bodyEl.textContent];
+        return source
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .map((t) => `<p class="m-0 mb-2xs">${esc(t)}</p>`)
+            .join('');
+    }
+
+    function parseCommentCards(doc) {
+        const cards = doc.querySelectorAll('[data-testid="search-sdui-comment-unit"]');
+        const comments = [];
+
+        cards.forEach((card) => {
+            try {
+                const tracker = card.closest('search-telemetry-tracker');
+                const ctxRaw = tracker && tracker.getAttribute('data-faceplate-tracking-context');
+                if (!ctxRaw) return;
+                const ctx = JSON.parse(ctxRaw);
+                const commentId = ctx && ctx.comment && ctx.comment.id;
+                if (!commentId) return;
+
+                // Permalink to this specific comment.
+                const permalinkEl = card.querySelector('a[aria-labelledby^="comment-content-"]');
+                const permalink = permalinkEl && permalinkEl.getAttribute('href');
+                if (!permalink) return;
+                // Parent post's permalink: same path minus the comment-id segment.
+                const postPermalink = permalink.replace(/[^/]+\/$/, '');
+
+                const contentWrap = card.querySelector('[data-testid="search-comment-content"]');
+                const bodyEl = contentWrap && contentWrap.querySelector('[id^="search-comment-"][id$="-post-rtjson-content"]');
+                // Scoped to contentWrap so this reads the comment's own score,
+                // not the post's upvote/comment-count numbers elsewhere on the card.
+                const voteEl = contentWrap && contentWrap.querySelector('faceplate-number');
+                const voteCount = voteEl ? (parseInt(voteEl.getAttribute('number'), 10) || 0) : 0;
+                // Scoped to contentWrap for the same reason — the post's own
+                // timestamp appears elsewhere on the card.
+                const timeEl = contentWrap && contentWrap.querySelector('faceplate-timeago');
+                const ts = timeEl && timeEl.getAttribute('ts');
+                const createdUnix = ts ? Math.floor(new Date(ts).getTime() / 1000) : null;
+
+                comments.push({
+                    id: commentId,
+                    postTitle: (ctx.post && ctx.post.title) || '',
+                    subredditName: (ctx.subreddit && ctx.subreddit.name) || '',
+                    permalink,
+                    postPermalink,
+                    bodyHtml: commentBodyHtml(bodyEl),
+                    voteCount,
+                    createdUnix
+                });
+            } catch (e) {
+                // Skip malformed cards without failing the whole batch.
+            }
+        });
+
+        return comments;
+    }
+
+    // loading="lazy" distinguishes the pagination partial from hover-card
+    // partials elsewhere on the page (those use loading="programmatic").
+    function findNextCommentsUrl(doc) {
+        const el = doc.querySelector('faceplate-partial[loading="lazy"]');
+        const src = el && el.getAttribute('src');
+        if (!src) return null;
+        try {
+            return new URL(src, 'https://www.reddit.com').toString();
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async function fetchCommentsPage(url) {
+        const res = await fetch(url, {
+            credentials: 'include',
+            headers: { Accept: 'text/vnd.reddit.partial+html, text/html;q=0.9' }
+        });
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
+        const html = await res.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        return {
+            comments: parseCommentCards(doc),
+            nextUrl: findNextCommentsUrl(doc)
+        };
+    }
+
+    // Renders a comment card using Reddit's native utility classes, mirroring
+    // <shreddit-profile-comment>'s layout (header, timestamp, body, actions).
+    function commentCardHtml(c) {
+        const permalink = `https://www.reddit.com${esc(c.permalink)}`;
+        const postUrl = `https://www.reddit.com${esc(c.postPermalink)}`;
+        const subUrl = `https://www.reddit.com/r/${esc(c.subredditName)}/`;
+        const subLower = (c.subredditName || '').toLowerCase();
+        const cachedIcon = iconCache.get(subLower);
+
+        return `
+        <div class="ghostddit-card block relative bg-neutral-background hover:bg-neutral-background-hover xs:rounded-4 px-md py-sm my-2xs">
+            <a class="absolute inset-0" href="${permalink}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1"></a>
+
+            <div class="text-12 relative w-fit z-10">
+                <div class="flex items-center flex-wrap">
+                    <span class="ghostddit-icon-slot inline-flex items-center justify-center w-lg h-lg relative me-xs" data-subreddit="${esc(subLower)}" ${cachedIcon ? 'data-icon-applied="1"' : ''}>
+                        ${cachedIcon ? `<span class="inline-block rounded-full relative h-full w-full"><img src="${esc(cachedIcon)}" alt="" class="ghostddit-icon-img mb-0 rounded-full overflow-hidden w-full h-full" width="24" style="width:24px;height:24px;object-fit:cover;" loading="lazy" onerror="this.remove();"></span>` : ''}
+                    </span>
+                    <a class="text-neutral-content-strong font-semibold no-visited no-underline hover:underline relative z-10" href="${subUrl}" target="_blank" rel="noopener">r/${esc(c.subredditName)}</a>
+                    <span class="px-2xs text-neutral-content-weak" aria-hidden="true">&bull;</span>
+                    <a class="text-neutral-content-strong font-normal no-visited hover:underline relative z-10" href="${postUrl}" target="_blank" rel="noopener">${esc(c.postTitle)}</a>
+                </div>
+            </div>
+
+            <div class="text-neutral-content-weak text-12 ms-xl mt-2xs relative z-10">
+                <span class="font-bold text-neutral-content-strong">${esc(currentCommentsUsername || '')}</span>
+                commented
+                ${c.createdUnix ? `<span>${timeAgo(c.createdUnix)}</span>` : ''}
+            </div>
+
+            <div class="ms-[22px] mt-2xs ps-[10px] text-neutral-content-strong overflow-hidden relative z-10" style="word-break:break-word;">
+                ${c.bodyHtml}
+            </div>
+
+            <div class="ms-lg mt-2xs relative z-10">
+                <div class="flex items-center gap-md text-12 text-neutral-content-weak">
+                    <span class="flex items-center gap-2xs">
+                        <span style="display:inline-flex; color:inherit;">
+                        <svg rpl="" fill="currentColor" height="16" icon-name="upvote" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10 19a3.966 3.966 0 01-3.96-3.962V10.98H2.838a1.731 1.731 0 01-1.605-1.073 1.734 1.734 0 01.377-1.895L9.364.254a.925.925 0 011.272 0l7.754 7.759c.498.499.646 1.242.376 1.894-.27.652-.9 1.073-1.605 1.073h-3.202v4.058A3.965 3.965 0 019.999 19H10zM2.989 9.179H7.84v5.731c0 1.13.81 2.163 1.934 2.278a2.163 2.163 0 002.386-2.15V9.179h4.851L10 2.163 2.989 9.179z"/></svg>
+                        </span>
+                        <span>${formatCount(c.voteCount)}</span>
+                        <span style="display:inline-flex; color:inherit;">
+                        <svg rpl="" fill="currentColor" height="16" icon-name="downvote" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10 1a3.966 3.966 0 013.96 3.962V9.02h3.202c.706 0 1.335.42 1.605 1.073.27.652.122 1.396-.377 1.895l-7.754 7.759a.925.925 0 01-1.272 0l-7.754-7.76a1.734 1.734 0 01-.376-1.894c.27-.652.9-1.073 1.605-1.073h3.202V4.962A3.965 3.965 0 0110 1zm7.01 9.82h-4.85V5.09c0-1.13-.81-2.163-1.934-2.278a2.163 2.163 0 00-2.386 2.15v5.859H2.989l7.01 7.016 7.012-7.016z"/></svg>
+                        </span>
+                    </span>
+                    <a class="flex items-center gap-2xs hover:underline relative z-10" href="${permalink}" target="_blank" rel="noopener">
+                        <span style="display:inline-flex; color:inherit;">
+                        <svg rpl="" fill="currentColor" height="16" icon-name="comment" viewBox="0 0 20 20" width="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M10 1a9 9 0 00-9 9c0 1.947.79 3.58 1.935 4.957L.231 17.661A.784.784 0 00.785 19H10a9 9 0 009-9 9 9 0 00-9-9zm0 16.2H6.162c-.994.004-1.907.053-3.045.144l-.076-.188a36.981 36.981 0 002.328-2.087l-1.05-1.263C3.297 12.576 2.8 11.331 2.8 10c0-3.97 3.23-7.2 7.2-7.2s7.2 3.23 7.2 7.2-3.23 7.2-7.2 7.2z"/></svg>
+                        </span>
+                        <span>Reply</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+
+    function renderComments(panel, comments) {
+        const list = panel.querySelector('.ghostddit-list');
+        const frag = document.createDocumentFragment();
+        comments.forEach((c) => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = commentCardHtml(c);
+            frag.appendChild(wrapper.firstElementChild);
+        });
+        list.appendChild(frag);
+    }
+
+    // Mirrors loadMore()'s guard/generation/status pattern against comments'
+    // own state.
+    async function loadComments(myGeneration, panel) {
+        if (myGeneration !== generation) return;
+        if (commentsLoading || commentsExhausted || !currentCommentsUsername) return;
+        commentsLoading = true;
+
+        function disconnectCommentsSentinel() {
+            try { panel?._ghostdditObserver?.disconnect(); } catch (e) {}
+        }
+
+        setStatus(panel, 'Fetching comments…');
+        try {
+            const url = nextCommentsUrl || commentSearchUrl(currentCommentsUsername, currentCommentsSort);
+            const { comments, nextUrl } = await fetchCommentsPage(url);
+            if (myGeneration !== generation) return;
+
+            nextCommentsUrl = nextUrl;
+
+            const newComments = comments.filter((c) => c.id && !seenCommentIds.has(c.id));
+            newComments.forEach((c) => seenCommentIds.add(c.id));
+            if (newComments.length) {
+                renderComments(panel, newComments);
+                loadIconsForComments(panel, newComments);
+            }
+
+            if (!nextUrl) {
+                commentsExhausted = true;
+                setStatus(panel, seenCommentIds.size
+                    ? 'No more comments.'
+                    : 'No public comments found via search.');
+                disconnectCommentsSentinel();
+            } else {
+                setStatus(panel, '');
+            }
+        } catch (err) {
+            if (myGeneration !== generation) return;
+            if (!isExtensionContextValid() || /extension context invalidated/i.test(err.message || '')) {
+                handleInvalidContext();
+            } else {
+                setStatus(panel, `Couldn't load comments (${err.message}). Scroll to retry.`);
+                setTimeout(() => {
+                    if (myGeneration === generation) loadComments(myGeneration, panel);
+                }, 4000);
+            }
+        } finally {
+            if (myGeneration === generation) {
+                commentsLoading = false;
+            }
+        }
+    }
+
+    // Infinite-scroll sentinel for the comments tab, calling loadComments()
+    // instead of the posts-only observer ensurePanel() wires up by default.
+    function setupCommentsSentinel(panel, myGeneration) {
+        const sentinel = panel.querySelector('.ghostddit-sentinel');
+        if (!sentinel) return;
+        const io = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((e) => e.isIntersecting)) loadComments(myGeneration, panel);
+            },
+            { root: null, rootMargin: '600px 0px', threshold: 0 }
+        );
+        io.observe(sentinel);
+        panel._ghostdditObserver = io;
     }
 
     function timeAgo(unixSeconds) {
@@ -232,10 +490,8 @@
         return imgs.length ? imgs : null;
     }
 
-    // Small hand-rolled Markdown -> HTML renderer for post selftext, covering
-    // the subset Reddit's own markdown flavor actually uses (bold/italic,
-    // strikethrough, superscript, inline code, links, spoilers). Not a general
-    // CommonMark implementation — just enough for typical post bodies.
+    // Inline Markdown -> HTML for post selftext: bold/italic, strikethrough,
+    // superscript, inline code, links. Covers Reddit's markdown subset only.
     function inlineMd(str) {
         let out = str;
         out = out.replace(/`([^`]+)`/g,
@@ -251,10 +507,9 @@
         return out;
     }
 
-    // Line-by-line block-level pass (headers, quotes, lists, rules, code
-    // fences) built as a small state machine — listType/inQuote track open
-    // <ul>/<ol>/<blockquote> tags so consecutive matching lines merge into one
-    // list/quote instead of one per line.
+    // Block-level Markdown pass (headers, quotes, lists, rules, code fences).
+    // listType/inQuote track open <ul>/<ol>/<blockquote> tags so consecutive
+    // matching lines merge into one list/quote.
     function mdToHtml(raw) {
         const text = (raw || '').trim();
         if (!text) return '';
@@ -357,10 +612,7 @@
 
         return `
         <div class="ghostddit-card block relative bg-neutral-background hover:bg-neutral-background-hover xs:rounded-4 px-md py-2xs my-2xs">
-            <!-- Invisible full-card link so clicking anywhere on the card opens the
-                 post, while the real interactive bits (subreddit link, gallery
-                 arrows, comment count) sit above it via z-10/relative and remain
-                 independently clickable. -->
+            <!-- Full-card link; interactive elements sit above it via z-10/relative. -->
             <a class="absolute inset-0" href="${permalink}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1"></a>
 
             <span class="flex justify-between text-12 min-h-[32px] mb-2xs -mt-2xs relative z-10">
@@ -435,16 +687,13 @@
         if (panel) return panel;
 
         const opts = options || {};
-        const headerText = opts.headerText || 'Revealed posts';
-        const badgeHtml = opts.comingSoon
-            ? `<span class="ghostddit-badge">Ghostddit</span><span class="ghostddit-badge-soon">Coming soon</span>`
-            : `<span class="ghostddit-badge">Ghostddit</span>`;
+        const headerText = opts.headerText || 'Revealed Posts';
 
         panel = document.createElement('div');
         panel.id = PANEL_ID;
         panel.innerHTML = `
         <div class="ghostddit-header">
-            ${badgeHtml}
+            <span class="ghostddit-badge">Ghostddit</span>
             <span class="ghostddit-header-text">${headerText}</span>
         </div>
         <div class="ghostddit-list"></div>
@@ -454,13 +703,9 @@
 
         emptyFeedEl.insertAdjacentElement('afterend', panel);
 
-        // Infinite scroll: an invisible sentinel sits at the bottom of the list. 
-        // IntersectionObserver fires as soon as it nears the viewport (rootMargin
-        //  gives it a head start), which triggers the next page fetch automatically.
-        // loadMore()'s own loading/exhausted guards keep this from firing
-        // duplicate requests. The observer is stashed on the panel so
-        // tryInject() can disconnect it when the panel is torn down for a
-        // new profile/tab/sort context.
+        // Infinite scroll: fetches the next page when the sentinel nears
+        // the viewport. Stashed on the panel so it can be disconnected when
+        // the panel is torn down.
         const sentinel = panel.querySelector('.ghostddit-sentinel');
         const io = new IntersectionObserver(
             (entries) => {
@@ -471,10 +716,8 @@
         io.observe(sentinel);
         panel._ghostdditObserver = io;
 
-        // Reddit's own web components listen for these events bubbling up from
-        // anywhere in the page; without stopping propagation here, hovering our
-        // injected cards can trigger Reddit's hover/focus UI (tooltips, focus
-        // rings) on unrelated elements.
+        // Stop these from bubbling to Reddit's own components, which would
+        // otherwise trigger their hover/focus UI on unrelated elements.
         ['mouseover', 'mouseout', 'focusin', 'focusout', 'pointerover', 'pointerout']
             .forEach((evt) => panel.addEventListener(evt, (e) => e.stopPropagation()));
 
@@ -495,10 +738,8 @@
         if (!imgEl || !gallery || gallery.length < 2) return;
 
         let index = 0;
-        // Bumped on every navigation so a slow-loading image that finishes
-        // after the user has already clicked past it can't clobber a newer,
-        // faster-loading one — only the load/error event matching the
-        // current token is allowed to touch the DOM.
+        // Bumped on every navigation; a stale load/error event is ignored
+        // if it doesn't match the current token.
         let loadToken = 0;
 
         function updateChrome() {
@@ -518,7 +759,7 @@
             const targetUrl = gallery[index].url;
             const myToken = ++loadToken;
 
-            // Fade the old photo out and show a spinner until the new one is actually ready to display.
+            // Show a spinner until the new image is ready.
             if (loaderEl) loaderEl.style.display = 'flex';
             imgEl.style.opacity = '0';
 
@@ -598,11 +839,9 @@
         cardEls.forEach((cardEl) => setupSelftextCard(cardEl));
     }
 
-    // `generation` is bumped every time tryInject() starts tracking a new
-    // profile/tab/sort context. Any in-flight fetch captures the generation it
-    // started with (myGeneration) and bails if the user has since navigated
-    // away — otherwise a slow request for the *previous* profile could land
-    // late and render stale posts into the *current* panel.
+    // `myGeneration` is the generation captured when this fetch started;
+    // if it no longer matches the current `generation`, the user has
+    // navigated away and the result is discarded.
     async function loadMore(myGeneration) {
         if (myGeneration !== generation) return;
         if (loading || exhausted || !currentUsername) return;
@@ -645,11 +884,8 @@
                 handleInvalidContext();
             } else {
                 setStatus(panel, `Couldn't load posts (${err.message}). Scroll to retry.`);
-                // The sentinel won't re-fire on its own unless it leaves and
-                // re-enters the viewport, which requires user scrolling — a
-                // reasonable fallback for transient errors since there's no
-                // button to click anymore. A short delayed retry also covers
-                // the case where the user is already parked at the bottom.
+                // Also retry automatically in case the user is already
+                // parked at the bottom and won't trigger the sentinel again.
                 setTimeout(() => {
                     if (myGeneration === generation) loadMore(myGeneration);
                 }, 4000);
@@ -676,11 +912,8 @@
         const key = contextKey(ctx);
 
         if (key === lastContextKey) {
-            // Same view as before, but Reddit's own re-renders can detach our
-            // panel from the DOM (e.g. it re-creates the empty-feed element) —
-            // reattach without refetching. If the panel is gone entirely and
-            // this isn't the comments placeholder, treat it as a fresh context
-            // so a real panel/fetch gets rebuilt.
+            // Same view: reattach a detached panel without refetching, or
+            // rebuild from scratch if it's gone entirely.
             const panel = document.getElementById(PANEL_ID);
             if (panel && !panel.isConnected) {
                 emptyFeedEl.insertAdjacentElement('afterend', panel);
@@ -702,10 +935,18 @@
         }
 
         if (ctx.tab === 'comments') {
-            currentUsername = null;
-            const panel = ensurePanel(emptyFeedEl, { headerText: 'Comments', comingSoon: true });
-            setStatus(panel, 'Revealing hidden comments is planned for an upcoming update — posts are supported now, on the Overview and Posts tabs.');
+            currentCommentsUsername = ctx.username;
+            currentCommentsSort = ctx.sort;
+            seenCommentIds = new Set();
+            nextCommentsUrl = null;
+            commentsLoading = false;
+            commentsExhausted = false;
+
+            const panel = ensurePanel(emptyFeedEl, { headerText: 'Revealed Comments' });
+            // Replace ensurePanel()'s default posts-pagination observer.
             try { panel._ghostdditObserver?.disconnect(); } catch (e) {}
+            setupCommentsSentinel(panel, myGeneration);
+            loadComments(myGeneration, panel);
             return;
         }
 
@@ -717,18 +958,16 @@
         loading = false;
         seenPostIds = new Set();
 
-        ensurePanel(emptyFeedEl);
+        const panel = ensurePanel(emptyFeedEl, { headerText: 'Revealed Posts' });
         loadMore(myGeneration);
     }
 
     // ---------------------------------------------------------------------
     // Update banner
     //
-    // background.js periodically checks GitHub Releases and stores the result
-    // under this storage key. We read it once on load and again whenever it
-    // changes, and show a small dismissible banner if a newer version exists.
-    // Dismissal is remembered per-version so it won't nag again until the
-    // *next* release ships.
+    // Reads the release info background.js stores in chrome.storage.local
+    // and shows a dismissible banner when a newer version is available.
+    // Dismissal is remembered per-version.
     // ---------------------------------------------------------------------
     const UPDATE_INFO_KEY = 'ghostddit_update_info';
     const UPDATE_DISMISSED_KEY = 'ghostddit_update_dismissed_version';
@@ -767,8 +1006,7 @@
             renderUpdateBanner(res[UPDATE_INFO_KEY]);
         });
 
-        // Covers the case where background.js's periodic check finishes after
-        // this page already loaded (e.g. a long-lived pinned tab).
+        // Picks up a check that finishes after this page already loaded.
         chrome.storage.onChanged.addListener((changes, area) => {
             if (area === 'local' && changes[UPDATE_INFO_KEY]) {
                 renderUpdateBanner(changes[UPDATE_INFO_KEY].newValue);
@@ -776,17 +1014,14 @@
         });
     }
 
-    // Reddit re-renders its feed component in place as content streams in, so
-    // a broad subtree observer (rather than watching one specific node) is
-    // needed to catch the moment #empty-feed-content appears or disappears.
+    // Broad subtree observer catches #empty-feed-content appearing/disappearing
+    // as Reddit re-renders its feed component in place.
     const observer = new MutationObserver(() => tryInject());
     observer.observe(document.documentElement, { childList: true, subtree: true });
 
-    // Reddit is a SPA: navigating between profiles never fires a real
-    // popstate-only page load, it goes through history.pushState/replaceState.
-    // Patching those (a common technique since there's no native event for
-    // them) lets us re-run tryInject() on in-app navigation. The 300ms delay
-    // gives Reddit's own router time to swap in the new page's content first.
+    // Patches history.pushState/replaceState to fire a custom event, since
+    // Reddit's SPA navigation doesn't trigger a real page load or popstate.
+    // The 300ms delay lets Reddit's router swap in the new page first.
     ['pushState', 'replaceState'].forEach((fn) => {
         const orig = history[fn];
         history[fn] = function (...args) {
