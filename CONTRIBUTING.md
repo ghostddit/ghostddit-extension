@@ -81,6 +81,8 @@ Before opening a PR, check:
 - No new errors in the background service worker's console
   (`chrome://extensions` → Ghostddit → "service worker" link) or the page
   console.
+- The popup still shows the cached state correctly and can trigger a manual
+  update check without breaking the background flow.
 
 ## 6. Opening a PR
 

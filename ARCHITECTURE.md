@@ -126,7 +126,8 @@ the one place that happens.
 Two consumers read that same storage key independently:
 
 - **popup.js** reads it once on open, then calls
-  `GHOSTDDIT_CHECK_UPDATE_NOW` to force a fresh check.
+  `GHOSTDDIT_CHECK_UPDATE_NOW` to force a fresh check when the user taps
+  the manual refresh button.
 - **content.js**'s `initUpdateBanner()` reads it once and also subscribes to
   `chrome.storage.onChanged`, so a long-lived pinned tab picks up a result
   that finishes after the page already loaded.

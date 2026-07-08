@@ -21,7 +21,7 @@ Ghostddit currently supports Chromium-based browsers such as Chrome, Edge, and B
 
 - **Reveals hidden post & comment history** on `reddit.com/user/<name>` profile pages, across the Overview, Posts, and Comments tabs, using Reddit's own public search API as a fallback source.
 - **Subreddit icons, galleries, videos, and self-text rendering**, formatted to match Reddit's native look and follow its light/dark theme automatically.
-- **Built-in update checker** — a toolbar popup shows your installed version, checks GitHub Releases for a newer one, and lets you jump straight to the download.
+- **Built-in update checker** — a toolbar popup shows your installed version, checks GitHub Releases for a newer one, and lets you force a manual re-check or jump straight to the download.
 
 ## Installing from Releases
 
@@ -51,7 +51,7 @@ Ghostddit Extension is not published on the Chrome Web Store, so you install it 
 
 ### Updating
 
-Click the Ghostddit toolbar icon to open the popup — it shows your installed version and checks for a newer release automatically. When one is available, use **Get the update** to jump to the new release, download the new `.zip`, and repeat the install steps above (or use **Reload** on the extension's card in `chrome://extensions` after replacing the unpacked folder's contents).
+Click the Ghostddit toolbar icon to open the popup — it shows your installed version and checks for a newer release automatically. You can also use **Check for updates** to trigger an immediate refresh, and when one is available, use **Get the update** to jump to the new release, download the new `.zip`, and repeat the install steps above (or use **Reload** on the extension's card in `chrome://extensions` after replacing the unpacked folder's contents).
 
 ## Usage
 
