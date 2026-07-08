@@ -28,11 +28,14 @@ async function checkForUpdate() {
             headers: { Accept: 'application/vnd.github+json' },
             cache: 'no-store'
         });
-        if (!res.ok) return; // rate-limited or repo has no releases yet — just skip silently
+        if (!res.ok) {
+            if (res.status === 403 || res.status === 429) throw new Error('RATE_LIMITED');
+            throw new Error(`HTTP_${res.status}`);
+        }
 
         const data = await res.json();
         const latestVersion = String(data.tag_name || '').replace(/^v/i, '').trim();
-        if (!latestVersion) return;
+        if (!latestVersion) throw new Error('BAD_RESPONSE');
 
         const currentVersion = chrome.runtime.getManifest().version;
         const available = isNewerVersion(latestVersion, currentVersion);
@@ -55,20 +58,21 @@ async function checkForUpdate() {
         } else {
             chrome.action.setBadgeText({ text: '' });
         }
+        return true;
     } catch (e) {
-        // Network hiccups shouldn't spam anything — just try again on the next alarm.
+        throw e;
     }
 }
 
 chrome.runtime.onInstalled.addListener(() => {
     chrome.alarms.create(UPDATE_CHECK_ALARM, { periodInMinutes: UPDATE_CHECK_PERIOD_MINUTES });
-    checkForUpdate();
+    checkForUpdate().catch(() => {});
 });
 chrome.runtime.onStartup.addListener(() => {
-    checkForUpdate();
+    checkForUpdate().catch(() => {});
 });
 chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === UPDATE_CHECK_ALARM) checkForUpdate();
+    if (alarm.name === UPDATE_CHECK_ALARM) checkForUpdate().catch(() => {});
 });
 
 // ---------------------------------------------------------------------------

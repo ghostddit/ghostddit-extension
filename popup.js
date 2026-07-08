@@ -52,11 +52,16 @@
         }
     }
 
+    function friendlyError(code) {
+        if (code === 'RATE_LIMITED') return "GitHub's rate limit was hit. Try again in a bit.";
+        return 'Check your connection and try again.';
+    }
+
     function renderError(message) {
         statusCard.dataset.state = 'error';
         statusIcon.textContent = '!';
         statusTitle.textContent = "Couldn't check for updates";
-        statusDetail.textContent = message || 'Check your connection and try again.';
+        statusDetail.textContent = friendlyError(message);
         updateLink.classList.toggle('hidden', true);
     }
 
@@ -81,7 +86,7 @@
             recheckBtn.textContent = 'Check for updates';
 
             if (chrome.runtime.lastError || !resp || !resp.ok) {
-                renderError();
+                renderError(resp && resp.error);
                 return;
             }
             render(resp.info);
