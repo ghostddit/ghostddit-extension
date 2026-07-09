@@ -1,4 +1,5 @@
-// Render the revealed posts panel, cards, and pagination.
+// Posts tab: card markup, panel setup, gallery/selftext interactivity,
+// rendering, and pagination (loadMore). See ARCHITECTURE.md, items 4-5.
     function postCardHtml(p) {
         const image = getBestImage(p);
         const gallery = getGalleryImages(p);
@@ -12,6 +13,7 @@
 
         return `
         <div class="ghostddit-card block relative bg-neutral-background hover:bg-neutral-background-hover xs:rounded-4 px-md py-2xs my-2xs">
+            <!-- Make the whole card clickable while keeping the interactive controls above it. -->
             <a class="absolute inset-0" href="${permalink}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1"></a>
 
             <span class="flex justify-between text-12 min-h-[32px] mb-2xs -mt-2xs relative z-10">
@@ -40,7 +42,9 @@
                 : (gallery
                     ? `<div class="ghostddit-gallery relative z-10 overflow-hidden mb-xs rounded-4 bg-black" style="height:min(420px,60vh); width:100%;">
                     <img class="ghostddit-gallery-bg" src="${esc(gallery[0].url)}" alt="" aria-hidden="true" style="position:absolute; inset:-24px; width:calc(100% + 48px); height:calc(100% + 48px); object-fit:cover; filter:blur(28px) brightness(0.55); transform:scale(1.1); z-index:0; pointer-events:none;">
-                    <img class="ghostddit-gallery-img" src="${esc(gallery[0].url)}" alt="" loading="lazy" onerror="this.parentElement.style.display='none'" style="position:relative; z-index:1; display:block; width:100%; height:100%; object-fit:contain; object-position:center;">
+                    <div class="ghostddit-gallery-viewport" style="position:relative; z-index:1; width:100%; height:100%; overflow:hidden;">
+                    <img class="ghostddit-gallery-img" src="${esc(gallery[0].url)}" alt="" loading="lazy" onerror="this.parentElement.parentElement.style.display='none'" style="position:absolute; inset:0; display:block; width:100%; height:100%; object-fit:contain; object-position:center; transform:translateX(0); transition:transform 320ms cubic-bezier(.4,0,.2,1);">
+                    </div>
                     ${gallery.length > 1 ? `
                     <button type="button" class="ghostddit-gallery-prev" aria-label="Previous image" style="position:absolute; z-index:2; left:8px; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:9999px; background:rgba(0,0,0,0.6); color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;">
                         <svg fill="currentColor" height="16" width="16" viewBox="0 0 20 20" style="display:block"><path d="M6.3 10c0-.23.088-.46.264-.636l4.6-4.6a.9.9 0 111.273 1.272L8.474 10l3.963 3.964a.9.9 0 01-1.273 1.272l-4.6-4.6A.897.897 0 016.3 10z"/></svg>
@@ -102,6 +106,7 @@
 
         emptyFeedEl.insertAdjacentElement('afterend', panel);
 
+        // Observe the sentinel to request the next page when it nears the viewport.
         const sentinel = panel.querySelector('.ghostddit-sentinel');
         const io = new IntersectionObserver(
             (entries) => {
@@ -112,6 +117,8 @@
         io.observe(sentinel);
         panel._ghostdditObserver = io;
 
+        // Stop these from bubbling to Reddit's own components, which would
+        // otherwise trigger their hover/focus UI on unrelated elements.
         ['mouseover', 'mouseout', 'focusin', 'focusout', 'pointerover', 'pointerout']
             .forEach((evt) => panel.addEventListener(evt, (e) => e.stopPropagation()));
 
@@ -123,16 +130,19 @@
     }
 
     function setupGalleryCard(cardEl, gallery) {
-        const imgEl = cardEl.querySelector('.ghostddit-gallery-img');
+        const viewport = cardEl.querySelector('.ghostddit-gallery-viewport');
         const bgEl = cardEl.querySelector('.ghostddit-gallery-bg');
         const prevBtn = cardEl.querySelector('.ghostddit-gallery-prev');
         const nextBtn = cardEl.querySelector('.ghostddit-gallery-next');
         const counterEl = cardEl.querySelector('.ghostddit-gallery-counter');
         const loaderEl = cardEl.querySelector('.ghostddit-gallery-loader');
-        if (!imgEl || !gallery || gallery.length < 2) return;
+        const firstImg = cardEl.querySelector('.ghostddit-gallery-img');
+        if (!viewport || !firstImg || !gallery || gallery.length < 2) return;
 
         let index = 0;
-        let loadToken = 0;
+        let currentImg = firstImg;
+        // Ignore repeated clicks while the current slide is still animating.
+        let transitioning = false;
 
         function updateChrome() {
             if (counterEl) counterEl.textContent = `${index + 1} / ${gallery.length}`;
@@ -146,29 +156,58 @@
             }
         }
 
-        function goTo(newIndex) {
+        // direction: 1 advances to the next image; -1 moves back to the previous one.
+        function goTo(newIndex, direction) {
+            transitioning = true;
             index = newIndex;
+
             const targetUrl = gallery[index].url;
-            const myToken = ++loadToken;
+            const outgoing = currentImg;
 
+            const incoming = document.createElement('img');
+            incoming.className = 'ghostddit-gallery-img';
+            incoming.alt = '';
+            incoming.style.cssText = outgoing.style.cssText;
+            incoming.style.transition = 'none'; // no transition until placed off-screen first
+            incoming.style.transform = `translateX(${direction * 100}%)`;
+
+            // Show a spinner until the new image is ready.
             if (loaderEl) loaderEl.style.display = 'flex';
-            imgEl.style.opacity = '0';
 
-            imgEl.onload = () => {
-                if (myToken !== loadToken) return; // superseded by a later click
+            function startSlide() {
                 if (loaderEl) loaderEl.style.display = 'none';
-                imgEl.style.opacity = '1';
-            };
-            imgEl.onerror = () => {
-                if (myToken !== loadToken) return;
-                if (loaderEl) loaderEl.style.display = 'none';
-                imgEl.style.opacity = '1';
-                const container = cardEl.querySelector('.ghostddit-gallery');
-                if (container) container.style.display = 'none';
-            };
+                viewport.appendChild(incoming);
+                // Force a reflow so the browser registers the off-screen start position before the transition begins.
+                void incoming.offsetWidth;
+                incoming.style.transition = 'transform 320ms cubic-bezier(.4,0,.2,1)';
+                incoming.style.transform = 'translateX(0)';
+                outgoing.style.transform = `translateX(${direction * -100}%)`;
 
-            imgEl.src = targetUrl;
-            if (bgEl) bgEl.src = targetUrl;
+                currentImg = incoming;
+                if (bgEl) bgEl.src = targetUrl;
+
+                const finish = () => {
+                    outgoing.removeEventListener('transitionend', finish);
+                    outgoing.remove();
+                    transitioning = false;
+                };
+                outgoing.addEventListener('transitionend', finish);
+                // Fallback in case transitionend never fires (e.g. the card
+                // scrolls out of view mid-animation and the browser skips
+                // the transition entirely).
+                setTimeout(finish, 400);
+            }
+
+            incoming.onload = startSlide;
+            incoming.onerror = () => {
+                transitioning = false;
+                if (loaderEl) loaderEl.style.display = 'none';
+                incoming.remove();
+                outgoing.src = targetUrl;
+                if (bgEl) bgEl.src = targetUrl;
+            };
+            incoming.src = targetUrl;
+
             updateChrome();
         }
 
@@ -176,14 +215,14 @@
             prevBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (index > 0) goTo(index - 1);
+                if (index > 0 && !transitioning) goTo(index - 1, -1);
             });
         }
         if (nextBtn) {
             nextBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (index < gallery.length - 1) goTo(index + 1);
+                if (index < gallery.length - 1 && !transitioning) goTo(index + 1, 1);
             });
         }
 
@@ -230,6 +269,9 @@
         cardEls.forEach((cardEl) => setupSelftextCard(cardEl));
     }
 
+    // `myGeneration` is the generation captured when this fetch started;
+    // if it no longer matches the current `generation`, the user has
+    // navigated away and the result is discarded.
     async function loadMore(myGeneration) {
         if (myGeneration !== generation) return;
         if (loading || exhausted || !currentUsername) return;
