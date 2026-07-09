@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "Ghostddit",
     "short_name": "Ghostddit",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Shows hidden Reddit posts and comments directly on hidden profile pages",
     "homepage_url": "https://github.com/ghostddit/ghostddit-extension",
 
