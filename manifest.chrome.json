@@ -37,14 +37,7 @@
     ],
 
     "background": {
-        "service_worker": "background.js",
-        "scripts": ["background.js"]
-    },
-
-    "browser_specific_settings": {
-        "gecko": {
-            "id": "ghostddit@ghostddit.pages.dev"
-        }
+        "service_worker": "background/index.js"
     },
 
     "content_scripts": [
@@ -52,7 +45,20 @@
         "matches": [
             "https://www.reddit.com/*"
         ],
-        "js": ["content.js"],
+        "js": [
+            "content/01-state.js",
+            "content/02-lifecycle.js",
+            "content/03-context.js",
+            "content/04-messaging.js",
+            "content/05-format-utils.js",
+            "content/06-media.js",
+            "content/07-markdown.js",
+            "content/08-posts.js",
+            "content/09-comments.js",
+            "content/10-orchestrator.js",
+            "content/11-update-banner.js",
+            "content/12-bootstrap.js"
+        ],
         "css": ["content.css"],
         "run_at": "document_idle"
         }
