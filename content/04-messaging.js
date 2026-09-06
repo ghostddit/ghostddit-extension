@@ -63,8 +63,21 @@
             const name = (slot.getAttribute('data-subreddit') || '').toLowerCase();
             if (!name || slot.getAttribute('data-icon-applied') === '1') return;
             const icon = iconCache.get(name);
-            if (icon) {
-                slot.innerHTML = `<span class="inline-block rounded-full relative h-full w-full"><img src="${icon}" alt="" class="ghostddit-icon-img mb-0 shreddit-subreddit-icon__icon rounded-full overflow-hidden w-full h-full" width="24" style="width:24px;height:24px;object-fit:cover;" loading="lazy" onerror="this.remove();"></span>`;
+            if (icon && /^https?:\/\//i.test(icon)) {
+                const span = document.createElement('span');
+                span.className = 'inline-block rounded-full relative h-full w-full';
+                const img = document.createElement('img');
+                img.src = icon;
+                img.alt = '';
+                img.className = 'ghostddit-icon-img mb-0 shreddit-subreddit-icon__icon rounded-full overflow-hidden w-full h-full';
+                img.width = 24;
+                img.style.width = '24px';
+                img.style.height = '24px';
+                img.style.objectFit = 'cover';
+                img.loading = 'lazy';
+                img.addEventListener('error', () => img.remove());
+                span.appendChild(img);
+                slot.replaceChildren(span);
                 slot.setAttribute('data-icon-applied', '1');
             }
         });
@@ -89,9 +102,13 @@
     }
 
     function getCookie(name) {
-        const escaped = name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1');
-        const match = document.cookie.match(new RegExp('(?:^|; )' + escaped + '=([^;]*)'));
-        return match ? decodeURIComponent(match[1]) : null;
+        for (const part of document.cookie.split('; ')) {
+            const idx = part.indexOf('=');
+            if (idx !== -1 && part.slice(0, idx) === name) {
+                return decodeURIComponent(part.slice(idx + 1));
+            }
+        }
+        return null;
     }
 
     async function shredditGraphql(operation, variables) {
