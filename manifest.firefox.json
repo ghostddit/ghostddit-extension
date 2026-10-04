@@ -33,6 +33,7 @@
     "host_permissions": [
         "https://api.reddit.com/*",
         "https://www.reddit.com/*",
+        "https://old.reddit.com/*",
         "https://api.github.com/*"
     ],
 
@@ -53,7 +54,8 @@
     "content_scripts": [
         {
         "matches": [
-            "https://www.reddit.com/*"
+            "https://www.reddit.com/*",
+            "https://old.reddit.com/*"
         ],
         "js": [
             "content/01-state.js",
@@ -69,7 +71,8 @@
             "content/11-update-banner.js",
             "content/12-bootstrap.js",
             "content/13-force-reveal.js",
-            "content/14-whats-new.js"
+            "content/14-whats-new.js",
+            "content/15-overview.js"
         ],
         "css": ["content.css"],
         "run_at": "document_idle"

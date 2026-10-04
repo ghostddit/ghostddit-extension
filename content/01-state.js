@@ -20,6 +20,15 @@ let nextCommentsUrl = null;
 let commentsLoading = false;
 let commentsExhausted = false;
 
+// Overview merges both feeds; it reuses the cursors and seen-sets above and
+// buffers fetched items until they can be placed in order.
+let overviewPostBuffer = [];
+let overviewCommentBuffer = [];
+let overviewPostsDone = false;
+let overviewCommentsDone = false;
+let overviewLoading = false;
+let overviewRenderedCount = 0;
+
 const FORCE_MODE_COOKIE = 'ghostddit_force_mode';
 
 function readForceModeCookie() {

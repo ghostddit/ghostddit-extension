@@ -17,7 +17,8 @@ Not affiliated with Reddit, Inc. Ghostddit is not distributed through the Chrome
 
 ## Features
 
-- Reveals hidden post and comment history on Reddit profile pages across Overview, Posts, and Comments views.
+- Reveals hidden post and comment history on Reddit profile pages across Overview, Posts, and Comments views. Overview interleaves posts and comments, newest first, like Reddit's own overview.
+- Works on old Reddit too, both on `old.reddit.com` and on `www.reddit.com` with the "use old Reddit" preference, rendering revealed items as native-looking old Reddit rows.
 - Renders cards with subreddit icons, galleries, videos, and self-text using Reddit's public data sources.
 - Lets you upvote and downvote revealed posts and comments inline, using your existing logged-in Reddit session.
 - Force-reveal mode (Ctrl+G) is a global toggle that shows the Ghostddit panel on any profile, even one Reddit is already rendering normally, and stays on across every profile you visit until you turn it off.
@@ -52,8 +53,8 @@ Open the Ghostddit popup to see the installed version and the latest cached upda
 
 ## Usage
 
-1. Open a Reddit profile page at `https://www.reddit.com/user/<username>`.
-2. Switch to Overview, Posts, or Comments.
+1. Open a Reddit profile page at `https://www.reddit.com/user/<username>` (or `https://old.reddit.com/user/<username>`).
+2. Switch to Overview, Posts, or Comments (Overview, Submitted, or Comments on old Reddit).
 3. If Reddit shows the empty-state message, Ghostddit will load the user's public posts and comments inline.
 4. Scroll to load more results automatically.
 5. Use the arrows next to a revealed post or comment's score to upvote or downvote it. This requires you to be logged in to Reddit in that browser tab; voting uses your own Reddit account exactly as it would from Reddit's normal UI.
@@ -66,9 +67,10 @@ Open the Ghostddit popup to see the installed version and the latest cached upda
 | `storage`                                                 | Caches update-check results and the update-banner dismissal state.                               |
 | `alarms`                                                  | Schedules the periodic background update check.                                                  |
 | `https://api.reddit.com/*` and `https://www.reddit.com/*` | Fetches posts, comments, subreddit icons, the Reddit page context, and submits vote requests.    |
+| `https://old.reddit.com/*`                                | Runs on old Reddit profile pages and submits old Reddit vote requests.                           |
 | `https://api.github.com/*`                                | Checks the latest GitHub release.                                                                |
 
-Ghostddit does not collect or store personal data of its own; requests go directly from the browser to Reddit's and GitHub's public APIs. Voting requests are sent directly to Reddit using your browser's existing Reddit session/cookies — Ghostddit never reads, stores, or transmits your session or login credentials itself, only the same `csrf_token` cookie Reddit's own front end uses.
+Ghostddit does not collect or store personal data of its own; requests go directly from the browser to Reddit's and GitHub's public APIs. Voting requests are sent directly to Reddit using your browser's existing Reddit session/cookies — Ghostddit never reads, stores, or transmits your session or login credentials itself, only the same `csrf_token` cookie Reddit's own front end uses (on old Reddit, the page's `uh` modhash, which old Reddit's own forms submit).
 
 ## Development
 
@@ -77,9 +79,10 @@ This is a plain Manifest V3 extension with no build step.
 See [ARCHITECTURE](ARCHITECTURE.md) for the current layout.
 
 1. Clone the repository.
-2. Load it unpacked as described above.
-3. After editing any file, refresh the extension from the browser's extensions page.
-4. Reload the Reddit tab as well if you changed the content script or styles.
+2. Create a `manifest.json` in the repo root (it is gitignored). Both browsers load the folder's `manifest.json`, so either copy the manifest for your browser, or combine them so one folder loads in both: start from `manifest.chrome.json`, add the Firefox `background.scripts` list next to `service_worker`, and add Firefox's `browser_specific_settings`.
+3. Load it unpacked as described above.
+4. After editing any file, refresh the extension from the browser's extensions page.
+5. Reload the Reddit tab as well if you changed the content script or styles.
 
 ## Contributing
 
