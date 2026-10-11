@@ -58,14 +58,37 @@ async function loadIconsForComments(panel, comments) {
     applyIconsToPanel(panel);
 }
 
+// Only allow plain https image URLs; blocks javascript:/data: and attribute break-out.
+function sanitizeIconUrl(url) {
+    if (typeof url !== 'string') return null;
+    try {
+        const u = new URL(url);
+        return u.protocol === 'https:' ? u.href : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 function applyIconsToPanel(panel) {
     if (!panel) return;
     panel.querySelectorAll('.ghostddit-icon-slot').forEach((slot) => {
         const name = (slot.getAttribute('data-subreddit') || '').toLowerCase();
         if (!name || slot.getAttribute('data-icon-applied') === '1') return;
         const icon = iconCache.get(name);
-        if (icon) {
-            slot.innerHTML = `<span class="inline-block rounded-full relative h-full w-full"><img src="${icon}" alt="" class="ghostddit-icon-img mb-0 shreddit-subreddit-icon__icon rounded-full overflow-hidden w-full h-full" width="24" style="width:24px;height:24px;object-fit:cover;" loading="lazy" onerror="this.remove();"></span>`;
+        const safeIcon = sanitizeIconUrl(icon);
+        if (safeIcon) {
+            const wrapper = document.createElement('span');
+            wrapper.className = 'inline-block rounded-full relative h-full w-full';
+            const img = document.createElement('img');
+            img.src = safeIcon;
+            img.alt = '';
+            img.className = 'ghostddit-icon-img mb-0 shreddit-subreddit-icon__icon rounded-full overflow-hidden w-full h-full';
+            img.width = 24;
+            img.style.cssText = 'width:24px;height:24px;object-fit:cover;';
+            img.loading = 'lazy';
+            img.addEventListener('error', () => img.remove());
+            wrapper.appendChild(img);
+            slot.replaceChildren(wrapper);
             slot.setAttribute('data-icon-applied', '1');
         }
     });
