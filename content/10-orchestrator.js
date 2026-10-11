@@ -108,11 +108,8 @@ function tryInject() {
     const key = contextKey(ctx);
 
     if (key === lastContextKey) {
-        const panel = document.getElementById(PANEL_ID);
-        if (panel && !panel.isConnected && autoHiddenEl) {
-            autoHiddenEl.insertAdjacentElement('afterend', panel);
-        }
-        return;
+        if (document.getElementById(PANEL_ID)) return;
+        lastContextKey = null;
     }
 
     clearTimeout(injectCheckTimer);
