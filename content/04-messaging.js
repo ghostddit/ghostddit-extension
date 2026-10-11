@@ -112,6 +112,27 @@ function fetchPosts(username, sort, timeframe, after) {
     });
 }
 
+// Comment search lives on www.reddit.com; from old.reddit.com that's a
+// cross-origin request, so the background worker fetches the HTML instead.
+function fetchCommentsPageHtml(url) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+            { type: 'GHOSTDDIT_FETCH_COMMENTS_PAGE', url },
+            (resp) => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+                if (!resp || !resp.ok) {
+                    reject(new Error(resp?.error || 'UNKNOWN_ERROR'));
+                    return;
+                }
+                resolve(resp.html);
+            }
+        );
+    });
+}
+
 function getCookie(name) {
     const escaped = name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1');
     const match = document.cookie.match(new RegExp('(?:^|; )' + escaped + '=([^;]*)'));
@@ -139,11 +160,41 @@ async function shredditGraphql(operation, variables) {
     }
 }
 
+// Old Reddit's CSRF token ("modhash"). It's in the logout form's hidden
+// `uh` input, and also in the r.setup() config script; empty when logged out.
+function getModhash() {
+    const input = document.querySelector('input[name="uh"]');
+    if (input && input.value) return input.value;
+    const config = document.getElementById('config');
+    const m = config && config.textContent.match(/"modhash":\s*"(\w+)"/);
+    return m ? m[1] : null;
+}
+
+const OLD_VOTE_DIR = { UP: '1', DOWN: '-1', NONE: '0' };
+
+// Old Reddit has no csrf_token cookie or shreddit GraphQL, so vote through
+// its own /api/vote endpoint on the page's origin, with the user's session.
+async function oldRedditVote(fullname, voteState) {
+    const modhash = getModhash();
+    if (!modhash) throw new Error('NOT_LOGGED_IN');
+
+    const res = await fetch(`${location.origin}/api/vote`, {
+        method: 'POST',
+        credentials: 'include',
+        body: new URLSearchParams({ id: fullname, dir: OLD_VOTE_DIR[voteState] || '0', uh: modhash })
+    });
+
+    if (!res.ok) throw new Error(`HTTP_${res.status}`);
+    return {};
+}
+
 function voteOnPost(postId, voteState) {
+    if (isOldReddit()) return oldRedditVote(postId, voteState);
     return shredditGraphql('UpdatePostVoteState', { input: { postId, voteState } });
 }
 
 function voteOnComment(commentId, voteState) {
+    if (isOldReddit()) return oldRedditVote(commentId, voteState);
     return shredditGraphql('UpdateCommentVoteState', { input: { commentId, voteState } });
 }
 

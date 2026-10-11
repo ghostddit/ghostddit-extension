@@ -30,6 +30,11 @@ function formatCount(n) {
     return sign + (m < 10 ? m.toFixed(1).replace(/\.0$/, '') : Math.round(m)) + 'm';
 }
 
+// Build links against the page's own origin so old.reddit.com stays on old Reddit.
+function redditOrigin() {
+    return location.origin;
+}
+
 function esc(str) {
     const div = document.createElement('div');
     div.textContent = str || '';

@@ -29,6 +29,39 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         return true; // keep the message channel open for the async sendResponse above
     }
 
+    if (msg?.type === 'GHOSTDDIT_FETCH_COMMENTS_PAGE') {
+        // Only fetch comment-search pages, so this can't be used as a general
+        // proxy. Parsing first normalizes any "../" segments before the check.
+        let target;
+        try {
+            target = new URL(msg.url);
+        } catch (e) {
+            target = null;
+        }
+        if (!target || target.origin !== 'https://www.reddit.com' || !target.pathname.startsWith('/svc/shreddit/search/')) {
+            sendResponse({ ok: false, error: 'BAD_URL' });
+            return false;
+        }
+
+        fetch(target.href, {
+            credentials: 'include',
+            headers: { Accept: 'text/vnd.reddit.partial+html, text/html;q=0.9' },
+            cache: 'no-store'
+        })
+            .then(async (r) => {
+                if (!r.ok) {
+                    if (r.status === 429) throw new Error('RATE_LIMITED');
+                    throw new Error(`HTTP_${r.status}`);
+                }
+                sendResponse({ ok: true, html: await r.text() });
+            })
+            .catch((err) => {
+                sendResponse({ ok: false, error: err.message || 'UNKNOWN_ERROR' });
+            });
+
+        return true; // keep the message channel open for the async sendResponse above
+    }
+
     if (msg?.type !== 'GHOSTDDIT_FETCH_POSTS') return false;
 
     const { username, sort = 'new', t = null, after = null } = msg;

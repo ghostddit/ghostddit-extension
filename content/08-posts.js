@@ -9,8 +9,8 @@ function postCardHtml(p) {
     const video = p.is_video ? getRedditVideo(p) : null;
     const subLower = (p.subreddit || '').toLowerCase();
     const cachedIcon = iconCache.get(subLower);
-    const permalink = `https://www.reddit.com${esc(p.permalink)}`;
-    const subUrl = `https://www.reddit.com/r/${esc(p.subreddit)}/`;
+    const permalink = `${redditOrigin()}${esc(p.permalink)}`;
+    const subUrl = `${redditOrigin()}/r/${esc(p.subreddit)}/`;
 
     return `
     <div class="ghostddit-card block relative bg-neutral-background hover:bg-neutral-background-hover xs:rounded-4 px-md py-2xs my-2xs">
@@ -86,6 +86,63 @@ function postCardHtml(p) {
     `;
 }
 
+const OLD_ARROW_UP_SVG = '<svg fill="currentColor" height="14" width="15" viewBox="0 0 15 14" style="display:block"><path d="M7.5 0L15 7.5h-4.5V14h-6V7.5H0z"/></svg>';
+const OLD_ARROW_DOWN_SVG = '<svg fill="currentColor" height="14" width="15" viewBox="0 0 15 14" style="display:block"><path d="M7.5 14L0 6.5h4.5V0h6v6.5H15z"/></svg>';
+
+// Old Reddit: a compact row styled like old Reddit's own listings (vote
+// column, thumbnail, title, tagline, buttons) instead of a new-Reddit card.
+function oldPostCardHtml(p) {
+    const permalink = `${redditOrigin()}${esc(p.permalink)}`;
+    const subUrl = `${redditOrigin()}/r/${esc(p.subreddit)}/`;
+    const thumb = p.thumbnail && /^https?:\/\//.test(p.thumbnail) ? decodeUrlEntities(p.thumbnail) : null;
+    // Link posts open their target; self posts, galleries, and other
+    // reddit.com URLs open the post on the current Reddit instead.
+    const url = decodeUrlEntities(p.url || '');
+    const isExternal = !p.is_self && /^https?:\/\//.test(url) && !/^https?:\/\/(?:[a-z]+\.)?reddit\.com\//i.test(url);
+    const titleHref = isExternal ? esc(url) : permalink;
+    const hasText = !!(p.is_self && (p.selftext || '').trim());
+    const numComments = Number(p.num_comments) || 0;
+
+    return `
+    <div class="ghostddit-card ghostddit-old-thing">
+        <div class="ghostddit-vote-controls ghostddit-old-midcol" data-base-score="${Number(p.score) || 0}">
+            <button type="button" class="ghostddit-vote-btn ghostddit-vote-up" aria-label="Upvote">${OLD_ARROW_UP_SVG}</button>
+            <div class="ghostddit-vote-score">${formatCount(p.score)}</div>
+            <button type="button" class="ghostddit-vote-btn ghostddit-vote-down" aria-label="Downvote">${OLD_ARROW_DOWN_SVG}</button>
+        </div>
+        ${thumb ? `<a class="ghostddit-old-thumb" href="${permalink}" target="_blank" rel="noopener"><img src="${esc(thumb)}" alt="" loading="lazy"></a>` : ''}
+        <div class="ghostddit-old-entry">
+            <p class="ghostddit-old-title">
+                <a href="${titleHref}" target="_blank" rel="noopener">${esc(p.title)}</a>
+                ${p.over_18 ? '<span class="ghostddit-old-nsfw">nsfw</span>' : ''}
+                ${p.domain ? `<span class="ghostddit-old-domain">(${esc(p.domain)})</span>` : ''}
+            </p>
+            <p class="ghostddit-old-tagline">submitted ${timeAgo(p.created_utc)} to <a href="${subUrl}" target="_blank" rel="noopener">r/${esc(p.subreddit)}</a></p>
+            <ul class="ghostddit-old-buttons">
+                <li><a href="${permalink}" target="_blank" rel="noopener">${numComments === 1 ? '1 comment' : `${formatCount(numComments)} comments`}</a></li>
+                ${hasText ? '<li><button type="button" class="ghostddit-old-expando-toggle">show text</button></li>' : ''}
+            </ul>
+            ${hasText ? `<div class="ghostddit-old-expando" hidden>${mdToHtml(p.selftext)}</div>` : ''}
+        </div>
+    </div>
+    `;
+}
+
+function setupOldPostRow(cardEl) {
+    const thumbImg = cardEl.querySelector('.ghostddit-old-thumb img');
+    if (thumbImg) thumbImg.addEventListener('error', () => thumbImg.parentElement.remove());
+
+    const toggle = cardEl.querySelector('.ghostddit-old-expando-toggle');
+    const expando = cardEl.querySelector('.ghostddit-old-expando');
+    if (!toggle || !expando) return;
+    toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        expando.hidden = !expando.hidden;
+        toggle.textContent = expando.hidden ? 'show text' : 'hide text';
+    });
+}
+
 function ensurePanel(emptyFeedEl, options) {
     let panel = document.getElementById(PANEL_ID);
     if (panel) return panel;
@@ -96,6 +153,8 @@ function ensurePanel(emptyFeedEl, options) {
 
     panel = document.createElement('div');
     panel.id = PANEL_ID;
+    // Scopes the old-Reddit row styles in content.css.
+    if (isOldReddit()) panel.classList.add('ghostddit-old');
     panel.innerHTML = `
     <div class="ghostddit-header">
         <span class="ghostddit-badge">Ghostddit</span>
@@ -259,12 +318,17 @@ function renderPosts(panel, posts) {
     const list = panel.querySelector('.ghostddit-list');
     const frag = document.createDocumentFragment();
     const cardEls = [];
+    const oldReddit = isOldReddit();
     posts.forEach((p) => {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = postCardHtml(p);
+        wrapper.innerHTML = oldReddit ? oldPostCardHtml(p) : postCardHtml(p);
         const cardEl = wrapper.firstElementChild;
-        const gallery = getGalleryImages(p);
-        if (gallery) setupGalleryCard(cardEl, gallery);
+        if (oldReddit) {
+            setupOldPostRow(cardEl);
+        } else {
+            const gallery = getGalleryImages(p);
+            if (gallery) setupGalleryCard(cardEl, gallery);
+        }
         setupVoteControls(cardEl, toFullname(p.name || p.id, 't3'), 'post');
         cardEls.push(cardEl);
         frag.appendChild(cardEl);

@@ -41,6 +41,30 @@ function injectAt(ctx, anchorEl, keySuffix, headerPrefix) {
         return;
     }
 
+    if (ctx.tab === 'overview') {
+        currentUsername = ctx.username;
+        currentSort = ctx.sort;
+        currentTimeframe = ctx.timeframe;
+        afterToken = null;
+        seenPostIds = new Set();
+        currentCommentsUsername = ctx.username;
+        currentCommentsSort = ctx.sort;
+        nextCommentsUrl = null;
+        seenCommentIds = new Set();
+        overviewPostBuffer = [];
+        overviewCommentBuffer = [];
+        overviewPostsDone = false;
+        overviewCommentsDone = false;
+        overviewLoading = false;
+        overviewRenderedCount = 0;
+
+        const panel = ensurePanel(anchorEl, { headerText: `${headerPrefix || ''}Revealed Posts & Comments`, hintText });
+        try { panel._ghostdditObserver?.disconnect(); } catch (e) {}
+        setupOverviewSentinel(panel, myGeneration);
+        loadOverview(myGeneration, panel);
+        return;
+    }
+
     currentUsername = ctx.username;
     currentSort = ctx.sort;
     currentTimeframe = ctx.timeframe;

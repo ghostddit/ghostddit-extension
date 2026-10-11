@@ -138,6 +138,247 @@
     to { transform: rotate(360deg); }
 }
 
+/* Old Reddit: plain rows styled after old Reddit's own listings. Font
+   family and size are inherited from the page (Verdana, x-small). */
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-list {
+    gap: 10px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-card {
+    display: flex;
+    align-items: flex-start;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-card:hover {
+    background: transparent;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-comment {
+    display: block;
+}
+
+#ghostddit-revealed-posts.ghostddit-old p,
+#ghostddit-revealed-posts.ghostddit-old ul {
+    margin: 0;
+    padding: 0;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-vote-controls {
+    color: inherit;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-midcol {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 40px;
+    margin-right: 7px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-comment .ghostddit-old-midcol {
+    width: 15px;
+    margin-right: 7px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-vote-btn {
+    width: 15px;
+    height: 14px;
+    border-radius: 0;
+    color: #c6c6c6;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-vote-btn:hover {
+    background: transparent;
+    color: #999;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-vote-up.is-active {
+    color: #ff8b60;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-vote-down.is-active {
+    color: #9494ff;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-midcol .ghostddit-vote-score {
+    min-width: 0;
+    color: #c6c6c6;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-midcol:has(.ghostddit-vote-up.is-active) .ghostddit-vote-score {
+    color: #ff8b60;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-midcol:has(.ghostddit-vote-down.is-active) .ghostddit-vote-score {
+    color: #9494ff;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-thumb {
+    flex: none;
+    width: 70px;
+    margin: 0 5px 2px 0;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-thumb img {
+    display: block;
+    width: 70px;
+    max-height: 70px;
+    object-fit: cover;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-entry {
+    flex: 1;
+    min-width: 0;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-title {
+    font-size: 16px;
+    margin-bottom: 1px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-title a {
+    color: #0000ff;
+    margin-right: 0.4em;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-title a:visited,
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-parent .ghostddit-old-parent-title:visited {
+    color: #551a8b;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-domain {
+    color: #888;
+    font-size: 10px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-nsfw {
+    color: #d10023;
+    border: 1px solid #d10023;
+    border-radius: 3px;
+    padding: 0 2px;
+    margin-right: 0.4em;
+    font-size: 10px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-tagline {
+    color: #888;
+    font-size: 10px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-tagline a,
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-parent a,
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-author {
+    color: #369;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-author {
+    font-weight: bold;
+    margin-right: 0.4em;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-points {
+    margin-right: 0.4em;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-buttons {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 1px 0;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-buttons a,
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-expando-toggle {
+    color: #888;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: bold;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-buttons a:hover,
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-expando-toggle:hover {
+    text-decoration: underline;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-expando {
+    max-width: 60em;
+    margin: 5px 0;
+    padding: 5px 10px;
+    border: 1px solid #369;
+    border-radius: 7px;
+    background: #fafafa;
+    color: #222;
+    font-size: 14px;
+    word-break: break-word;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-expando[hidden] {
+    display: none;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-parent {
+    color: #888;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-parent .ghostddit-old-parent-title:not(:visited) {
+    color: #0000ff;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-comment-main {
+    display: flex;
+    align-items: flex-start;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-md {
+    max-width: 60em;
+    margin: 2px 0;
+    color: #222;
+    font-size: 14px;
+    word-break: break-word;
+}
+
+#ghostddit-revealed-posts.ghostddit-old .ghostddit-old-md p {
+    margin: 0 0 5px;
+}
+
+/* RES night mode on old Reddit. */
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-old-title a,
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-old-parent .ghostddit-old-parent-title {
+    color: #ddd;
+}
+
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-old-tagline a,
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-old-parent a,
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-old-author {
+    color: #8cb3d9;
+}
+
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-old-md,
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-header-text {
+    color: #ccc;
+}
+
+html.res-nightmode #ghostddit-revealed-posts.ghostddit-old .ghostddit-old-expando {
+    background: #262626;
+    border-color: #555;
+    color: #ccc;
+}
+
 /* Sticky banner shown when a newer release is available. */
 #ghostddit-update-banner {
     position: fixed;

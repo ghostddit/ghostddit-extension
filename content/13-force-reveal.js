@@ -1,6 +1,8 @@
 // Ctrl+G global force-reveal
 
 function findFeedElement() {
+    // On old Reddit, #siteTable holds the listing and its prev/next buttons.
+    if (isOldReddit()) return document.getElementById('siteTable');
     return document.querySelector('shreddit-feed');
 }
 

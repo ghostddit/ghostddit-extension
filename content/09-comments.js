@@ -72,12 +72,17 @@ function findNextCommentsUrl(doc) {
 }
 
 async function fetchCommentsPage(url) {
-    const res = await fetch(url, {
-        credentials: 'include',
-        headers: { Accept: 'text/vnd.reddit.partial+html, text/html;q=0.9' }
-    });
-    if (!res.ok) throw new Error(`HTTP_${res.status}`);
-    const html = await res.text();
+    let html;
+    if (location.origin === 'https://www.reddit.com') {
+        const res = await fetch(url, {
+            credentials: 'include',
+            headers: { Accept: 'text/vnd.reddit.partial+html, text/html;q=0.9' }
+        });
+        if (!res.ok) throw new Error(`HTTP_${res.status}`);
+        html = await res.text();
+    } else {
+        html = await fetchCommentsPageHtml(url);
+    }
     const doc = new DOMParser().parseFromString(html, 'text/html');
     return {
         comments: parseCommentCards(doc),
@@ -86,9 +91,9 @@ async function fetchCommentsPage(url) {
 }
 
 function commentCardHtml(c) {
-    const permalink = `https://www.reddit.com${esc(c.permalink)}`;
-    const postUrl = `https://www.reddit.com${esc(c.postPermalink)}`;
-    const subUrl = `https://www.reddit.com/r/${esc(c.subredditName)}/`;
+    const permalink = `${redditOrigin()}${esc(c.permalink)}`;
+    const postUrl = `${redditOrigin()}${esc(c.postPermalink)}`;
+    const subUrl = `${redditOrigin()}/r/${esc(c.subredditName)}/`;
     const subLower = (c.subredditName || '').toLowerCase();
     const cachedIcon = iconCache.get(subLower);
 
@@ -140,12 +145,49 @@ function commentCardHtml(c) {
     `;
 }
 
+// Old Reddit: a row styled like the comments on an old Reddit profile.
+// The score sits in the tagline, so the vote-controls wrapper spans the
+// arrows and the entry.
+function oldCommentCardHtml(c) {
+    const permalink = `${redditOrigin()}${esc(c.permalink)}`;
+    const postUrl = `${redditOrigin()}${esc(c.postPermalink)}`;
+    const subUrl = `${redditOrigin()}/r/${esc(c.subredditName)}/`;
+
+    return `
+    <div class="ghostddit-card ghostddit-old-thing ghostddit-old-comment">
+        <p class="ghostddit-old-parent">
+            <a class="ghostddit-old-parent-title" href="${postUrl}" target="_blank" rel="noopener">${esc(c.postTitle)}</a>
+            in <a href="${subUrl}" target="_blank" rel="noopener">r/${esc(c.subredditName)}</a>
+        </p>
+        <div class="ghostddit-vote-controls ghostddit-old-comment-main" data-base-score="${Number(c.voteCount) || 0}">
+            <div class="ghostddit-old-midcol">
+                <button type="button" class="ghostddit-vote-btn ghostddit-vote-up" aria-label="Upvote">${OLD_ARROW_UP_SVG}</button>
+                <button type="button" class="ghostddit-vote-btn ghostddit-vote-down" aria-label="Downvote">${OLD_ARROW_DOWN_SVG}</button>
+            </div>
+            <div class="ghostddit-old-entry">
+                <p class="ghostddit-old-tagline">
+                    <span class="ghostddit-old-author">${esc(currentCommentsUsername || '')}</span>
+                    <span class="ghostddit-old-points"><span class="ghostddit-vote-score">${formatCount(c.voteCount)}</span> points</span>
+                    ${c.createdUnix ? `<span>${timeAgo(c.createdUnix)}</span>` : ''}
+                </p>
+                <div class="ghostddit-old-md">${c.bodyHtml}</div>
+                <ul class="ghostddit-old-buttons">
+                    <li><a href="${permalink}" target="_blank" rel="noopener">permalink</a></li>
+                    <li><a href="${postUrl}" target="_blank" rel="noopener">full comments</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    `;
+}
+
 function renderComments(panel, comments) {
     const list = panel.querySelector('.ghostddit-list');
     const frag = document.createDocumentFragment();
+    const oldReddit = isOldReddit();
     comments.forEach((c) => {
         const wrapper = document.createElement('div');
-        wrapper.innerHTML = commentCardHtml(c);
+        wrapper.innerHTML = oldReddit ? oldCommentCardHtml(c) : commentCardHtml(c);
         const cardEl = wrapper.firstElementChild;
         setupVoteControls(cardEl, toFullname(c.id, 't1'), 'comment');
         frag.appendChild(cardEl);

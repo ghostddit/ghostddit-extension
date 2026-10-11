@@ -24,7 +24,7 @@ The code is split into two mostly independent parts:
 - background/reddit-api.js — Reddit API proxying for posts, comments, and subreddit icons
 - background/update-checker.js — GitHub release polling and cached update state
 - background/whats-new.js — queues a one-time what's-new notice on install/update
-- content/01-state.js through content/14-whats-new.js — the content-script pipeline
+- content/01-state.js through content/15-overview.js — the content-script pipeline
 - content.css — styles for the injected UI, update banner, and what's-new panel
 - popup.html, popup.css, popup.js — toolbar popup UI
 
@@ -46,6 +46,7 @@ The content script is split into numbered modules so each one has a narrow job.
 12. bootstrap — watch DOM and SPA navigation changes and start the flow
 13. force-reveal — Ctrl+G global toggle (persisted in a cookie) to force the panel onto a normal, already-rendering profile, and keep it on across every profile, tab, and reload until toggled off
 14. whats-new — show a one-time panel listing what changed, the first time a Reddit page loads after an install or update
+15. overview — merge posts and comments into one feed for the Overview tab, newest first (highest score for `sort=top`), buffering each source so items stay in order across page boundaries
 
 The main entry point is the orchestrator in content/10-orchestrator.js. It runs
 whenever the DOM changes or Reddit navigates to a new view.
@@ -83,6 +84,10 @@ real, cookie-backed Reddit session rather than the extension's own context —
 voting in particular must go out under the user's own logged-in session, not
 the background worker's.
 
+On old.reddit.com, comment search is cross-origin (it lives on
+`www.reddit.com`), so there it goes through the background worker instead
+(`GHOSTDDIT_FETCH_COMMENTS_PAGE`); see "Old Reddit" below.
+
 ## Message contract
 
 Most background work goes through explicit messages from the content script
@@ -92,6 +97,7 @@ to the background worker, which waits and responds.
 | -------------------------------- | ---------------- | ------------------------------ | ------------------------- |
 | `GHOSTDDIT_FETCH_POSTS`          | `content script` | `background/reddit-api.js`     | `{ ok, posts, after }`    |
 | `GHOSTDDIT_FETCH_SUBREDDIT_ICON` | `content script` | `background/reddit-api.js`     | `{ ok, subreddit, icon }` |
+| `GHOSTDDIT_FETCH_COMMENTS_PAGE`  | `content script` | `background/reddit-api.js`     | `{ ok, html }`            |
 | `GHOSTDDIT_CHECK_UPDATE_NOW`     | `popup.js`       | `background/update-checker.js` | `{ ok, info }`            |
 
 Voting does not go through this message contract — see "Why the background
@@ -195,6 +201,39 @@ so there is no supported way to force the actual extension popup open on
 its own when a Reddit tab loads. The on-page modal is styled to look and
 read like the popup instead.
 
+## Old Reddit
+
+Old Reddit is served on `old.reddit.com`, and also on `www.reddit.com` for
+users with the "use old Reddit" preference, so `isOldReddit()`
+(content/03-context.js) detects it from the DOM (old Reddit's
+`#header-bottom-left`) rather than from the hostname. Everything else
+branches on that:
+
+- **Detection and anchor:** `findEmptyFeedContent()` looks for old Reddit's
+  empty listing, `#siteTable > #noresults`, and `findFeedElement()`
+  (content/13-force-reveal.js) returns `#siteTable` instead of
+  `<shreddit-feed>`. The auto-detection and Ctrl+G paths are otherwise the
+  same as on new Reddit.
+- **Rendering:** `ensurePanel()` adds a `ghostddit-old` class to the panel,
+  and `renderPosts` / `renderComments` use `oldPostCardHtml` /
+  `oldCommentCardHtml` — compact rows styled after old Reddit's listings
+  (content.css, `#ghostddit-revealed-posts.ghostddit-old`). They keep the
+  `ghostddit-card` and `ghostddit-vote-*` classes so pagination status and
+  `setupVoteControls` work unchanged.
+- **Links:** cards build links with `redditOrigin()` (the page's origin), so
+  they stay on whichever Reddit the user is browsing.
+- **Comment search:** fetched directly when the page is on `www.reddit.com`,
+  otherwise via `GHOSTDDIT_FETCH_COMMENTS_PAGE`. That handler only accepts
+  `https://www.reddit.com/svc/shreddit/search/` URLs so it can't be used as
+  a general proxy.
+- **Voting:** old Reddit has no `csrf_token` cookie or shreddit GraphQL, so
+  `voteOnPost` / `voteOnComment` call `oldRedditVote()`, which POSTs `id`,
+  `dir` (1 / 0 / -1) and the `uh` modhash to the page origin's `/api/vote`.
+  The modhash is read from the page (`getModhash()`).
+
+The Ctrl+G cookie is host-only, so force mode on `old.reddit.com` is
+toggled separately from `www.reddit.com`.
+
 ## Manifest split
 
 - manifest.json and manifest.chrome.json target Chromium-based browsers
@@ -203,13 +242,24 @@ read like the popup instead.
 The content-script list is the same across the manifests, but the background
 entry point differs by browser.
 
+`manifest.json` is gitignored. Both Chrome's "Load unpacked" and Firefox's
+"Load Temporary Add-on" read the folder's `manifest.json`, so for local
+development it can be a combined manifest: `manifest.chrome.json` plus
+Firefox's `background.scripts` (Chrome 121+ ignores it when
+`service_worker` is set, but lists a harmless "'background.scripts' requires
+manifest version of 2 or lower" warning under the extension's Errors;
+Firefox 121+ prefers it) and `browser_specific_settings`. Regenerate it
+after changing either manifest.
+
 ## Good places to edit
 
 | I want to...                                   | Look here                                                              |
 | ---------------------------------------------- | ---------------------------------------------------------------------- |
 | Change the injected post card UI               | content/08-posts.js and content.css                                    |
 | Change comment rendering or pagination         | content/09-comments.js and content/10-orchestrator.js                  |
-| Change voting behavior or requests             | content/04-messaging.js (`setupVoteControls`, `shredditGraphql`)       |
+| Change how Overview mixes posts and comments   | content/15-overview.js                                                 |
+| Change voting behavior or requests             | content/04-messaging.js (`setupVoteControls`, `shredditGraphql`, `oldRedditVote`) |
+| Change the old Reddit rows                     | content/08-posts.js, content/09-comments.js (`old*CardHtml`) and content.css |
 | Change force-reveal (Ctrl+G) behavior          | content/13-force-reveal.js and content/10-orchestrator.js (`injectAt`) |
 | Adjust how the extension detects profile pages | content/03-context.js                                                  |
 | Add or change a Reddit API request             | background/reddit-api.js                                               |
@@ -222,6 +272,7 @@ entry point differs by browser.
 
 - There is no build step. This is a plain Manifest V3 extension.
 - The content script depends on Reddit's current DOM structure, especially the
-  empty-state selector used in content/03-context.js and content/12-bootstrap.js.
+  empty-state selector used in content/03-context.js and content/12-bootstrap.js,
+  and on old Reddit's `#header-bottom-left`, `#siteTable`, and `#noresults`.
 - The markdown rendering in content/07-markdown.js is intentionally small and
   only covers the subset that Reddit uses in self-text.
