@@ -3,13 +3,37 @@
 const iconCache = new Map();
 const iconFetchesInFlight = new Set();
 
+async function pageFetchJson(url) {
+    const r = await fetch(url, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store'
+    });
+    if (!r.ok) throw new Error(`HTTP_${r.status}`);
+    return JSON.parse(await r.text());
+}
+
+async function fetchSubredditIconFromPage(subredditName) {
+    if (location.origin !== 'https://www.reddit.com') return null;
+    try {
+        const data = await pageFetchJson(`${location.origin}/r/${encodeURIComponent(subredditName)}/about.json`);
+        const d = data?.data || {};
+        let icon = d.community_icon || d.icon_img || null;
+        if (icon) icon = icon.split('&amp;').join('&');
+        return icon || null;
+    } catch (e) {
+        return null;
+    }
+}
+
 function fetchSubredditIcon(subredditName) {
     return new Promise((resolve) => {
         chrome.runtime.sendMessage(
             { type: 'GHOSTDDIT_FETCH_SUBREDDIT_ICON', subreddit: subredditName },
             (resp) => {
                 if (chrome.runtime.lastError || !resp || !resp.ok) {
-                    resolve(null);
+                    // Background request can be blocked (e.g. private-window browsers); try from the page.
+                    resolve(fetchSubredditIconFromPage(subredditName));
                     return;
                 }
                 resolve(resp.icon || null);
@@ -93,7 +117,9 @@ function applyIconsToPanel(panel) {
         }
     });
 }
-function fetchPosts(username, sort, timeframe, after) {
+const PAGE_FETCH_FALLBACK_ERRORS = new Set(['BAD_RESPONSE', 'BLOCKED_BY_REDDIT', 'BANNED_OR_PRIVATE', 'HTTP_403']);
+
+function fetchPostsViaBackground(username, sort, timeframe, after) {
     return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(
             { type: 'GHOSTDDIT_FETCH_POSTS', username, sort, t: timeframe, after },
@@ -110,6 +136,35 @@ function fetchPosts(username, sort, timeframe, after) {
             }
         );
     });
+}
+
+async function fetchPostsFromPage(username, sort, timeframe, after) {
+    const q = `author:"${username}"`;
+    let url = `${location.origin}/search.json?q=${encodeURIComponent(q)}&sort=${encodeURIComponent(sort || 'new')}&limit=25`;
+    if (sort === 'top' && timeframe) url += `&t=${encodeURIComponent(timeframe)}`;
+    if (after) url += `&after=${encodeURIComponent(after)}`;
+
+    const data = await pageFetchJson(url);
+    const posts = (data?.data?.children || [])
+        .filter((item) => item.kind === 't3')
+        .map((item) => item.data);
+    return { ok: true, posts, after: data?.data?.after || null };
+}
+
+async function fetchPosts(username, sort, timeframe, after) {
+    try {
+        return await fetchPostsViaBackground(username, sort, timeframe, after);
+    } catch (err) {
+        // Some setups (e.g. private-window browsers) get the background request
+        // blocked by Reddit while the page's own request works. Only possible on
+        // www.reddit.com, where the request is same-origin.
+        if (location.origin !== 'https://www.reddit.com' || !PAGE_FETCH_FALLBACK_ERRORS.has(err.message)) throw err;
+        try {
+            return await fetchPostsFromPage(username, sort, timeframe, after);
+        } catch (e) {
+            throw err;
+        }
+    }
 }
 
 // Comment search lives on www.reddit.com; from old.reddit.com that's a

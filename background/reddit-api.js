@@ -77,19 +77,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     })
         .then(async (r) => {
             const text = await r.text();
+
+            if (!r.ok) {
+                if (r.status === 404) throw new Error('USER_NOT_FOUND');
+                if (r.status === 403) throw new Error(/^\s*</.test(text) ? 'BLOCKED_BY_REDDIT' : 'BANNED_OR_PRIVATE');
+                if (r.status === 429) throw new Error('RATE_LIMITED');
+                if (r.status >= 500) throw new Error('REDDIT_UNAVAILABLE');
+                throw new Error(`HTTP_${r.status}`);
+            }
+
             let data;
             try {
                 data = JSON.parse(text);
             } catch (e) {
                 throw new Error('BAD_RESPONSE');
-            }
-
-            if (!r.ok) {
-                if (r.status === 404) throw new Error('USER_NOT_FOUND');
-                if (r.status === 403) throw new Error('BANNED_OR_PRIVATE');
-                if (r.status === 429) throw new Error('RATE_LIMITED');
-                if (r.status >= 500) throw new Error('REDDIT_UNAVAILABLE');
-                throw new Error(`HTTP_${r.status}`);
             }
 
             const posts = (data?.data?.children || [])
